@@ -253,8 +253,6 @@ AI Agent에서 자연어로 Editor를 조작합니다. 예:
 
 공식 외부 연동 API는 제한된 작업만 제공합니다(예: 회전 디포머의 피벗 위치는 읽기만 가능).
 **모든 네이티브 작업**을 실행하려면 선택적 브리지 구성 요소 `cubism_bridge.dll`을 설치하세요.
-`Live2D_Cubism.jar`는 수정하지 않으며, 페이로드는 `%LocalAppData%\CubismPatch\`에 위치하므로
-Editor 업데이트 후 설치 스크립트를 다시 실행하면 계속 사용할 수 있습니다.
 
 설치 후 Editor를 재시작하면 다음 도구가 추가됩니다:
 
@@ -278,13 +276,11 @@ Editor 업데이트 후 설치 스크립트를 다시 실행하면 계속 사용
 | `install.bat` / `uninstall.bat` | 설치 / 제거. 사용법: `install.bat "<Live2D Cubism 설치 경로>"` |
 | `SHA256SUMS.txt` | SHA-256 체크섬 |
 
-설치(Editor를 종료한 뒤, 둘 중 하나):
+설치:
 
-1. **범용 채널**: `install.bat "<Live2D Cubism 설치 경로>"` 실행 후 Editor 재시작;
-2. **기존 jli 프록시 사용 중**: `cubism_bridge.dll`만 `%LocalAppData%\CubismPatch\`(또는 Editor의 `app\jre\bin\`)에 복사하고 재시작 — 호환 프록시가 자동으로 로드합니다(같은 디렉터리 우선).
+**범용 채널**: `install.bat "<Live2D Cubism 설치 경로>"` 실행 후 Editor 재시작;
 
 > 브리지 바이너리는 Cubism Editor 5.4.00 alpha2 기준입니다. 대규모 업데이트로 네이티브 API가 바뀌면 재빌드가 필요할 수 있습니다.
-> Releases에는 브리지 바이너리만 포함됩니다(라이선스 패치는 포함되지 않습니다).
 
 ## 문제 해결
 

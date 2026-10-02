@@ -273,7 +273,7 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 
 ## 原生桥接（可选安装）
 
-官方外部集成 API 只覆盖有限操作（例如旋转变形器的枢轴位置仅可读取、无法写入）。若需要驱动**全部原生操作**，可安装可选的桥接组件 `cubism_bridge.dll`：它不修改 `Live2D_Cubism.jar`，负载全部位于 `%LocalAppData%\CubismPatch\`，编辑器更新后重跑一次安装脚本即可继续使用。
+官方外部集成 API 只覆盖有限操作（例如旋转变形器的枢轴位置仅可读取、无法写入）。若需要驱动**全部原生操作**，可安装可选的桥接组件 `cubism_bridge.dll`：
 
 安装并重启 Editor 后，本 MCP 新增以下工具：
 
@@ -297,13 +297,12 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 | `install.bat` / `uninstall.bat` | 安装 / 卸载，用法：`install.bat "<Live2D Cubism 安装目录>"` |
 | `SHA256SUMS.txt` | SHA-256 校验和 |
 
-安装（先关闭编辑器，二选一）：
+安装：
 
-1. **通用通道**：运行 `install.bat "<Live2D Cubism 安装目录>"`，然后重启编辑器；
-2. **已有 jli 代理**：只把 `cubism_bridge.dll` 复制到 `%LocalAppData%\CubismPatch\`（或编辑器 `app\jre\bin\`），重启编辑器——兼容的代理会自动加载它（同目录优先）。
+**通用通道**：运行 `install.bat "<Live2D Cubism 安装目录>"`，然后重启编辑器；
 
 > 桥接二进制适配 Cubism Editor 5.4.00 alpha2；编辑器大版本升级后若原生 API 变动，可能需要重新发布桥接。
-> Releases 仅包含桥接二进制，不含许可补丁。
+
 
 ## 常见问题
 

@@ -252,8 +252,7 @@ Control the Editor through natural language in your AI Agent, for example:
 
 The official External API Integration only covers a limited set of operations — for example, a rotation
 deformer's pivot position can be read but not written. To drive **all native operations**, install the
-optional bridge component `cubism_bridge.dll`: it does not modify `Live2D_Cubism.jar`, its payload lives
-entirely under `%LocalAppData%\CubismPatch\`, and re-running its install script is enough after an Editor update.
+optional bridge component `cubism_bridge.dll`:
 
 After installing and restarting the Editor, this MCP server exposes:
 
@@ -277,13 +276,11 @@ The bridge ships as a standalone DLL and does not modify `Live2D_Cubism.jar`:
 | `install.bat` / `uninstall.bat` | Install / uninstall; usage: `install.bat "<Live2D Cubism install dir>"` |
 | `SHA256SUMS.txt` | SHA-256 checksums |
 
-Install (close the editor first, pick one):
+Install:
 
-1. **Generic channel**: run `install.bat "<Live2D Cubism install dir>"`, then restart the editor;
-2. **Existing jli proxy**: just copy `cubism_bridge.dll` into `%LocalAppData%\CubismPatch\` (or the editor's `app\jre\bin\`) and restart — a compatible proxy loads it automatically (same directory wins).
+**Generic channel**: run `install.bat "<Live2D Cubism install dir>"`, then restart the editor;
 
 > The bridge binaries target Cubism Editor 5.4.00 alpha2; a major editor update may require a new bridge release.
-> The Releases contain the bridge binaries only (no license patch).
 
 ## Troubleshooting
 

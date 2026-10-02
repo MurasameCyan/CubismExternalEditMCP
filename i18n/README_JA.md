@@ -253,8 +253,7 @@ AI Agent で自然言語を使って Editor を操作します。例：
 
 公式の外部連携 API は限られた操作のみを提供します（例：旋转变形器の軸位置は読み取りのみで書き込み不可）。
 **すべてのネイティブ操作**を実行したい場合は、オプションのブリッジコンポーネント `cubism_bridge.dll` を
-導入できます。`Live2D_Cubism.jar` は変更せず、本体は `%LocalAppData%\CubismPatch\` に配置され、
-Editor 更新後もインストールスクリプトを再実行するだけで継続利用できます。
+導入できます。
 
 導入して Editor を再起動すると、以下のツールが追加されます：
 
@@ -278,13 +277,11 @@ Editor 更新後もインストールスクリプトを再実行するだけで�
 | `install.bat` / `uninstall.bat` | 導入 / 削除。使い方：`install.bat "<Live2D Cubism のインストール先>"` |
 | `SHA256SUMS.txt` | SHA-256 チェックサム |
 
-導入（Editor を終了してから、いずれか）：
+導入：
 
-1. **汎用チャネル**：`install.bat "<Live2D Cubism のインストール先>"` を実行し、Editor を再起動；
-2. **既存の jli プロキシがある場合**：`cubism_bridge.dll` を `%LocalAppData%\CubismPatch\`（または Editor の `app\jre\bin\`）にコピーして再起動——対応プロキシが自動的に読み込みます（同ディレクトリ優先）。
+**汎用チャネル**：`install.bat "<Live2D Cubism のインストール先>"` を実行し、Editor を再起動；
 
 > ブリッジのバイナリは Cubism Editor 5.4.00 alpha2 向けです。大型アップデートでネイティブ API が変わった場合は再ビルドが必要になることがあります。
-> Releases にはブリッジのバイナリのみが含まれます（ライセンスパッチは含みません）。
 
 ## トラブルシューティング
 
