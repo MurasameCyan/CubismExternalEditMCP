@@ -265,6 +265,26 @@ After installing and restarting the Editor, this MCP server exposes:
 
 > Without the bridge these three tools return `BridgeNotInstalled` with setup steps; all other tools are unaffected.
 
+### Download and install (Releases of this fork)
+
+The bridge ships as a standalone DLL and does not modify `Live2D_Cubism.jar`:
+<https://github.com/MurasameCyan/CubismExternalEditMCP/releases>
+
+| Asset | Description |
+|-------|-------------|
+| `cubism_bridge.dll` | Bridge payload (agent embedded; put it in `%LocalAppData%\CubismPatch\` or the editor's `app\jre\bin\`) |
+| `jli_generic.dll` | Generic proxy: install as the editor's `app\jre\bin\jli.dll`; loads the bridge only (no license patch) |
+| `install.bat` / `uninstall.bat` | Install / uninstall; usage: `install.bat "<Live2D Cubism install dir>"` |
+| `SHA256SUMS.txt` | SHA-256 checksums |
+
+Install (close the editor first, pick one):
+
+1. **Generic channel**: run `install.bat "<Live2D Cubism install dir>"`, then restart the editor;
+2. **Existing jli proxy**: just copy `cubism_bridge.dll` into `%LocalAppData%\CubismPatch\` (or the editor's `app\jre\bin\`) and restart — a compatible proxy loads it automatically (same directory wins).
+
+> The bridge binaries target Cubism Editor 5.4.00 alpha2; a major editor update may require a new bridge release.
+> The Releases contain the bridge binaries only (no license patch).
+
 ## Troubleshooting
 
 | Symptom | Cause | Solution |

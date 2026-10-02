@@ -285,6 +285,26 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 
 > 未安装桥接时，这三个工具返回 `BridgeNotInstalled` 与安装指引，其余工具不受影响。
 
+### 下载与安装（本 fork 的 Releases）
+
+桥接以**独立 DLL** 形式发布，不需要修改 `Live2D_Cubism.jar`：
+<https://github.com/MurasameCyan/CubismExternalEditMCP/releases>
+
+| 资产 | 说明 |
+|------|------|
+| `cubism_bridge.dll` | 桥接负载（内嵌 agent；放到 `%LocalAppData%\CubismPatch\` 或编辑器 `app\jre\bin\`） |
+| `jli_generic.dll` | 通用代理：安装为编辑器 `app\jre\bin\jli.dll`，只加载桥接（不含许可补丁） |
+| `install.bat` / `uninstall.bat` | 安装 / 卸载，用法：`install.bat "<Live2D Cubism 安装目录>"` |
+| `SHA256SUMS.txt` | SHA-256 校验和 |
+
+安装（先关闭编辑器，二选一）：
+
+1. **通用通道**：运行 `install.bat "<Live2D Cubism 安装目录>"`，然后重启编辑器；
+2. **已有 jli 代理**：只把 `cubism_bridge.dll` 复制到 `%LocalAppData%\CubismPatch\`（或编辑器 `app\jre\bin\`），重启编辑器——兼容的代理会自动加载它（同目录优先）。
+
+> 桥接二进制适配 Cubism Editor 5.4.00 alpha2；编辑器大版本升级后若原生 API 变动，可能需要重新发布桥接。
+> Releases 仅包含桥接二进制，不含许可补丁。
+
 ## 常见问题
 
 | 症状 | 原因 | 解决 |

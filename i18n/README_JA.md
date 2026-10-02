@@ -266,6 +266,26 @@ Editor 更新後もインストールスクリプトを再実行するだけで�
 
 > 未導入の場合、これら 3 つのツールは `BridgeNotInstalled` と導入手順を返します。他のツールには影響ありません。
 
+### ダウンロードとインストール（本 fork の Releases）
+
+ブリッジは**単体 DLL** として配布され、`Live2D_Cubism.jar` を変更しません：
+<https://github.com/MurasameCyan/CubismExternalEditMCP/releases>
+
+| アセット | 説明 |
+|---------|------|
+| `cubism_bridge.dll` | ブリッジ本体（agent 内蔵。`%LocalAppData%\CubismPatch\` または Editor の `app\jre\bin\` に配置） |
+| `jli_generic.dll` | 汎用プロキシ：Editor の `app\jre\bin\jli.dll` として導入。ブリッジのみ読み込み（ライセンスパッチなし） |
+| `install.bat` / `uninstall.bat` | 導入 / 削除。使い方：`install.bat "<Live2D Cubism のインストール先>"` |
+| `SHA256SUMS.txt` | SHA-256 チェックサム |
+
+導入（Editor を終了してから、いずれか）：
+
+1. **汎用チャネル**：`install.bat "<Live2D Cubism のインストール先>"` を実行し、Editor を再起動；
+2. **既存の jli プロキシがある場合**：`cubism_bridge.dll` を `%LocalAppData%\CubismPatch\`（または Editor の `app\jre\bin\`）にコピーして再起動——対応プロキシが自動的に読み込みます（同ディレクトリ優先）。
+
+> ブリッジのバイナリは Cubism Editor 5.4.00 alpha2 向けです。大型アップデートでネイティブ API が変わった場合は再ビルドが必要になることがあります。
+> Releases にはブリッジのバイナリのみが含まれます（ライセンスパッチは含みません）。
+
 ## トラブルシューティング
 
 | 症状 | 原因 | 解決策 |

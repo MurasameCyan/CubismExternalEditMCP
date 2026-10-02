@@ -266,6 +266,26 @@ Editor 업데이트 후 설치 스크립트를 다시 실행하면 계속 사용
 
 > 브리지가 없으면 이 세 도구는 `BridgeNotInstalled`와 설치 안내를 반환하며, 다른 도구에는 영향이 없습니다.
 
+### 다운로드 및 설치(이 fork의 Releases)
+
+브리지는 **단독 DLL**로 배포되며 `Live2D_Cubism.jar`를 수정하지 않습니다:
+<https://github.com/MurasameCyan/CubismExternalEditMCP/releases>
+
+| 자산 | 설명 |
+|------|------|
+| `cubism_bridge.dll` | 브리지 본체(agent 내장; `%LocalAppData%\CubismPatch\` 또는 Editor의 `app\jre\bin\`에 배치) |
+| `jli_generic.dll` | 범용 프록시: Editor의 `app\jre\bin\jli.dll`로 설치. 브리지만 로드(라이선스 패치 없음) |
+| `install.bat` / `uninstall.bat` | 설치 / 제거. 사용법: `install.bat "<Live2D Cubism 설치 경로>"` |
+| `SHA256SUMS.txt` | SHA-256 체크섬 |
+
+설치(Editor를 종료한 뒤, 둘 중 하나):
+
+1. **범용 채널**: `install.bat "<Live2D Cubism 설치 경로>"` 실행 후 Editor 재시작;
+2. **기존 jli 프록시 사용 중**: `cubism_bridge.dll`만 `%LocalAppData%\CubismPatch\`(또는 Editor의 `app\jre\bin\`)에 복사하고 재시작 — 호환 프록시가 자동으로 로드합니다(같은 디렉터리 우선).
+
+> 브리지 바이너리는 Cubism Editor 5.4.00 alpha2 기준입니다. 대규모 업데이트로 네이티브 API가 바뀌면 재빌드가 필요할 수 있습니다.
+> Releases에는 브리지 바이너리만 포함됩니다(라이선스 패치는 포함되지 않습니다).
+
 ## 문제 해결
 
 | 증상 | 원인 | 해결 방법 |
