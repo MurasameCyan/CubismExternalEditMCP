@@ -272,7 +272,7 @@ AI Agent에서 자연어로 Editor를 조작합니다. 예:
 | 자산 | 설명 |
 |------|------|
 | `cubism_bridge.dll` | 브리지 본체(agent 내장; `%LocalAppData%\CubismPatch\` 또는 Editor의 `app\jre\bin\`에 배치) |
-| `jli_generic.dll` | 범용 프록시: Editor의 `app\jre\bin\jli.dll`로 설치. 브리지만 로드(라이선스 패치 없음) |
+| `jli_generic.dll` | 범용 jli 프록시: Editor의 `app\jre\bin\jli.dll`로 설치하여 브리지를 로드합니다 |
 | `install.bat` / `uninstall.bat` | 설치 / 제거. 사용법: `install.bat "<Live2D Cubism 설치 경로>"` |
 | `SHA256SUMS.txt` | SHA-256 체크섬 |
 

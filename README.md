@@ -293,7 +293,7 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 | 资产 | 说明 |
 |------|------|
 | `cubism_bridge.dll` | 桥接负载（内嵌 agent；放到 `%LocalAppData%\CubismPatch\` 或编辑器 `app\jre\bin\`） |
-| `jli_generic.dll` | 通用代理：安装为编辑器 `app\jre\bin\jli.dll`，只加载桥接（不含许可补丁） |
+| `jli_generic.dll` | 通用 jli 代理：安装为编辑器 `app\jre\bin\jli.dll`，负责加载桥接 |
 | `install.bat` / `uninstall.bat` | 安装 / 卸载，用法：`install.bat "<Live2D Cubism 安装目录>"` |
 | `SHA256SUMS.txt` | SHA-256 校验和 |
 

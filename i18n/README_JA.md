@@ -273,7 +273,7 @@ AI Agent で自然言語を使って Editor を操作します。例：
 | アセット | 説明 |
 |---------|------|
 | `cubism_bridge.dll` | ブリッジ本体（agent 内蔵。`%LocalAppData%\CubismPatch\` または Editor の `app\jre\bin\` に配置） |
-| `jli_generic.dll` | 汎用プロキシ：Editor の `app\jre\bin\jli.dll` として導入。ブリッジのみ読み込み（ライセンスパッチなし） |
+| `jli_generic.dll` | 汎用 jli プロキシ：Editor の `app\jre\bin\jli.dll` として導入し、ブリッジを読み込みます |
 | `install.bat` / `uninstall.bat` | 導入 / 削除。使い方：`install.bat "<Live2D Cubism のインストール先>"` |
 | `SHA256SUMS.txt` | SHA-256 チェックサム |
 

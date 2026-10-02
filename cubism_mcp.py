@@ -1597,8 +1597,9 @@ async def cubism_move_object_on_parts_palette(
 
 
 # ── 原生桥接（CubismBridge：独立 DLL + 编辑器进程内 agent） ──────────────────
-# 桥接提供官方外部 API 之外的原生操作；由 %LocalAppData%\CubismPatch\cubism_bridge.dll
-# 在编辑器 JVM 启动时加载，MCP 通过本机 TCP + 令牌访问。
+# 桥接提供官方外部 API 之外的原生操作；cubism_bridge.dll 由 jli 代理在编辑器 JVM
+# 启动时加载（编辑器 app\jre\bin\ 或 %LocalAppData%\CubismPatch\），
+# MCP 通过本机 TCP + 令牌访问。
 
 BRIDGE_PORTS = range(22034, 22055)
 BRIDGE_DIR = os.environ.get("CUBISM_BRIDGE_DIR") or os.path.join(
@@ -1647,8 +1648,8 @@ async def _bridge_call(op: str, args: dict | None = None, timeout: float = 30.0)
             "ErrorType": "BridgeNotInstalled",
             "Message": f"未找到桥接令牌文件（{BRIDGE_TOKEN_FILE}），桥接尚未加载。",
             "Steps": [
-                "1. 确认 %LocalAppData%\\CubismPatch\\cubism_bridge.dll 存在",
-                "2. 若缺少，运行 bridge\\install.bat 后重启 Cubism Editor",
+                "1. 确认桥接 DLL 已安装：编辑器 app\\jre\\bin\\cubism_bridge.dll 或 %LocalAppData%\\CubismPatch\\cubism_bridge.dll",
+                "2. 未安装时：从 Releases 下载 cubism_bridge.dll + install.bat，按 README「原生桥接」安装后重启 Cubism Editor",
                 "3. 桥接只在编辑器 JVM 中启动（普通工具类 JVM 会跳过）",
             ],
         }}

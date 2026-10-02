@@ -272,7 +272,7 @@ The bridge ships as a standalone DLL and does not modify `Live2D_Cubism.jar`:
 | Asset | Description |
 |-------|-------------|
 | `cubism_bridge.dll` | Bridge payload (agent embedded; put it in `%LocalAppData%\CubismPatch\` or the editor's `app\jre\bin\`) |
-| `jli_generic.dll` | Generic proxy: install as the editor's `app\jre\bin\jli.dll`; loads the bridge only (no license patch) |
+| `jli_generic.dll` | Generic jli proxy: install as the editor's `app\jre\bin\jli.dll`; it loads the bridge |
 | `install.bat` / `uninstall.bat` | Install / uninstall; usage: `install.bat "<Live2D Cubism install dir>"` |
 | `SHA256SUMS.txt` | SHA-256 checksums |
 
