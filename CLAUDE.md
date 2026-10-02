@@ -107,19 +107,22 @@ WebSocket 连接管理，负责：
 
 ## Git 工作流
 
-| 分支 | 用途 |
-|------|------|
-| `master` | 稳定发布，合并通过 PR |
-| `dev` | 日常开发，所有本地修改在此进行 |
+单分支 `master`，直接在 `master` 上提交（不再使用 `dev`）。
 
 ### 推送规则
 
 - **禁止 AI 助手未经用户明确同意执行 `git push`**
-- 本机 `git push` 走 HTTP 代理可能不通（502），可用 `gh api` 替代
+- 本机 `git push` 走 HTTP 代理可能不通（502）时，改用 `gh`（`gh release` / `gh api`）
+
+### 仓库范围（重要）
+
+- 本仓库只包含 `cubism_mcp.py` 与其公开文档（README ×4、`i18n/`、LICENSE、CI 配置）。
+- **本地项目文档、桥接组件源码与构建产物、私有笔记一律不进入本仓库**；桥接二进制仅通过 Releases 分发。
+- 提交前自查：不出现本地绝对路径、私有目录名、内部笔记内容。
 
 ### CI（`.github/workflows/ci.yml`）
 
-push/PR 到 `dev`/`master` 自动运行：语法检查 + 导入检查 + ruff lint
+push/PR 到 `master` 自动运行：语法检查 + 导入检查 + ruff lint
 覆盖 Python 3.10 / 3.12
 
 ## 枚举参数值获取
