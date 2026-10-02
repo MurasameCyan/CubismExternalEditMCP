@@ -285,6 +285,10 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 
 > 未安装桥接时，这三个工具返回 `BridgeNotInstalled` 与安装指引，其余工具不受影响。
 
+桥接当前提供 15 个操作：文档打开 / 保存 / 关闭、对象与选择读取、旋转变形器**枢轴编辑**、撤销 / 重做，
+以及 `editor.command.invoke`——按名字调用编辑器自身的 346 条原生命令（类型化参数、`IDocument` 自动注入、
+删除 / 退出 / 弹窗类命令需 `confirm`）。完整清单用 `cubism_bridge_ops` 查询。
+
 ### 下载与安装（本 fork 的 Releases）
 
 桥接以**独立 DLL** 形式发布，不需要修改 `Live2D_Cubism.jar`：

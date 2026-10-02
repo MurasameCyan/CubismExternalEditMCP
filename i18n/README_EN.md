@@ -264,6 +264,11 @@ After installing and restarting the Editor, this MCP server exposes:
 
 > Without the bridge these three tools return `BridgeNotInstalled` with setup steps; all other tools are unaffected.
 
+The bridge currently exposes 15 operations: document open / save / close, object & selection reads, rotation-deformer
+**pivot editing**, undo / redo, and `editor.command.invoke` — which calls any of the editor's 346 native commands by
+name (typed arguments, automatic `IDocument` injection, `confirm` required for delete / exit / dialog commands).
+Use `cubism_bridge_ops` for the full list.
+
 ### Download and install (Releases of this fork)
 
 The bridge ships as a standalone DLL and does not modify `Live2D_Cubism.jar`:
