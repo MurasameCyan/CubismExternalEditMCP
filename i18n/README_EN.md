@@ -251,8 +251,8 @@ Control the Editor through natural language in your AI Agent, for example:
 ## Native Bridge (optional)
 
 The official External API Integration only covers a limited set of operations — for example, a rotation
-deformer's pivot position can be read but not written. To drive **all native operations**, install the
-optional bridge component `cubism_bridge.dll`:
+deformer's pivot position can be read but not written. Install the optional `cubism_bridge.dll` component
+to extend native editing capabilities:
 
 After installing and restarting the Editor, this MCP server exposes:
 
@@ -264,10 +264,16 @@ After installing and restarting the Editor, this MCP server exposes:
 
 > Without the bridge these three tools return `BridgeNotInstalled` with setup steps; all other tools are unaffected.
 
-The bridge currently exposes 15 operations: document open / save / close, object & selection reads, rotation-deformer
-**pivot editing**, undo / redo, and `editor.command.invoke` — which calls any of the editor's 346 native commands by
-name (typed arguments, automatic `IDocument` injection, `confirm` required for delete / exit / dialog commands).
-Use `cubism_bridge_ops` for the full list.
+**CubismBridge 0.3.0 registers 33 operations**: document open / save / close, object and selection reads / writes,
+rotation-deformer pivots, mesh vertices and warp-deformer control points, keyform mapping, undo / redo,
+PNG/JPEG export, physics reads / writes, and animation creation.
+
+- Physics imports and global edits support native undo / redo. CMO3 preserves settings groups and FPS; use physics3 JSON to preserve gravity and wind.
+- Animation supports four native targets and CAN3 save / reopen. `editor.document.save` accepts `path`, which is required for untitled documents. Model / animation write failures return errors without retry dialogs.
+- `editor.command.invoke` supports typed arguments and automatic `IDocument` injection. Suspected dialog commands are rejected unless `allowDialog=true`; destructive commands such as delete / exit additionally require `confirm=true`. Manual menu operations are unchanged.
+
+Query `cubism_bridge_ops` for the operation list. **Registration does not establish full native coverage**;
+PSD / CMOX / SDK model data / video exports and remaining animation tracks, keyframes, settings and panels are still being expanded.
 
 ### Download and install (Releases of this fork)
 

@@ -273,7 +273,7 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 
 ## 原生桥接（可选安装）
 
-官方外部集成 API 只覆盖有限操作（例如旋转变形器的枢轴位置仅可读取、无法写入）。若需要驱动**全部原生操作**，可安装可选的桥接组件 `cubism_bridge.dll`：
+官方外部集成 API 只覆盖有限操作（例如旋转变形器的枢轴位置仅可读取、无法写入）。需要扩展原生编辑能力时，可安装可选的桥接组件 `cubism_bridge.dll`：
 
 安装并重启 Editor 后，本 MCP 新增以下工具：
 
@@ -285,9 +285,13 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 
 > 未安装桥接时，这三个工具返回 `BridgeNotInstalled` 与安装指引，其余工具不受影响。
 
-桥接当前提供 15 个操作：文档打开 / 保存 / 关闭、对象与选择读取、旋转变形器**枢轴编辑**、撤销 / 重做，
-以及 `editor.command.invoke`——按名字调用编辑器自身的 346 条原生命令（类型化参数、`IDocument` 自动注入、
-删除 / 退出 / 弹窗类命令需 `confirm`）。完整清单用 `cubism_bridge_ops` 查询。
+**CubismBridge 0.3.0 注册 33 个操作**：文档打开 / 保存 / 关闭、对象与选择读写、旋转变形器枢轴、网格顶点与弯曲变形器控制点、关键形状映射、撤销 / 重做、PNG/JPEG 导出、物理读写与动画创建。
+
+- 物理导入和全局修改支持原生撤销 / 重做；CMO3 保存设置组与 FPS，重力 / 风需通过 physics3 JSON 保存。
+- 动画支持四种原生目标及 CAN3 保存重开；`editor.document.save` 可指定 `path`，未命名文档必须提供路径。模型 / 动画写入失败返回错误，不弹重试框。
+- `editor.command.invoke` 支持类型化参数与 `IDocument` 自动注入；疑似弹窗命令默认拒绝，需显式 `allowDialog=true`，删除 / 退出等危险命令另需 `confirm=true`。手动菜单操作不受影响。
+
+操作清单用 `cubism_bridge_ops` 查询。**已注册不等于全部原生操作已验证**；PSD / CMOX / SDK 模型数据 / 视频导出与其余动画轨道、关键帧、设置、面板能力仍在扩展中。
 
 ### 下载与安装（本 fork 的 Releases）
 
