@@ -20,7 +20,7 @@ Live2D Cubism Editor の外部連携 API を **MCP (Model Context Protocol)** �
 ```mermaid
 graph TD
     AI["AI Agent"]
-    MCP["cubism_mcp.py<br/>MCP サーバー, 42 ツール"]
+    MCP["cubism_mcp.py<br/>MCP サーバー, 45 ツール"]
     Editor["Cubism Editor 5.4 Alpha<br/>外部連携 API"]
 
     AI -->|"stdio (MCP プロトコル)"| MCP
@@ -248,6 +248,23 @@ AI Agent で自然言語を使って Editor を操作します。例：
 | `EditGlue` | `Id`, ... | グルーのプロパティを編集 | 「グルーオブジェクトのウェイトを調整」 |
 | `DeleteObject` | `Id` | パーツパレットからオブジェクトを削除 | 「ID Warp999 のオブジェクトを削除」 |
 | `MoveObjectOnPartsPalette` | `Id`, `NewParentId`, `InsertPosition` | パーツパレット内のオブジェクト位置を移動 | 「ワープデフォーマ'曲面2'を位置 0 に移動」 |
+
+## ネイティブブリッジ（オプション）
+
+公式の外部連携 API は限られた操作のみを提供します（例：旋转变形器の軸位置は読み取りのみで書き込み不可）。
+**すべてのネイティブ操作**を実行したい場合は、オプションのブリッジコンポーネント `cubism_bridge.dll` を
+導入できます。`Live2D_Cubism.jar` は変更せず、本体は `%LocalAppData%\CubismPatch\` に配置され、
+Editor 更新後もインストールスクリプトを再実行するだけで継続利用できます。
+
+導入して Editor を再起動すると、以下のツールが追加されます：
+
+| ツール | 説明 |
+|------|------|
+| `cubism_bridge_status` | ブリッジの導入・接続状態を確認 |
+| `cubism_bridge_ops` | 登録済みのネイティブ操作一覧 |
+| `cubism_bridge_invoke` | 指定したネイティブ操作を実行（ホワイトリストはブリッジ側で管理） |
+
+> 未導入の場合、これら 3 つのツールは `BridgeNotInstalled` と導入手順を返します。他のツールには影響ありません。
 
 ## トラブルシューティング
 

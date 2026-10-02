@@ -20,7 +20,7 @@ Wrap the Live2D Cubism Editor External API as **MCP (Model Context Protocol)** t
 ```mermaid
 graph TD
     AI["AI Agent"]
-    MCP["cubism_mcp.py<br/>MCP Server, 42 Tools"]
+    MCP["cubism_mcp.py<br/>MCP Server, 45 Tools"]
     Editor["Cubism Editor 5.4 Alpha<br/>External API Integration"]
 
     AI -->|"stdio (MCP Protocol)"| MCP
@@ -247,6 +247,23 @@ Control the Editor through natural language in your AI Agent, for example:
 | `EditGlue` | `Id`, ... | Edit glue properties | "Adjust glue object weight" |
 | `DeleteObject` | `Id` | Delete an object from the parts palette | "Delete object with ID Warp999" |
 | `MoveObjectOnPartsPalette` | `Id`, `NewParentId`, `InsertPosition` | Move object position in parts palette | "Move warp deformer 'Surface2' to position 0" |
+
+## Native Bridge (optional)
+
+The official External API Integration only covers a limited set of operations — for example, a rotation
+deformer's pivot position can be read but not written. To drive **all native operations**, install the
+optional bridge component `cubism_bridge.dll`: it does not modify `Live2D_Cubism.jar`, its payload lives
+entirely under `%LocalAppData%\CubismPatch\`, and re-running its install script is enough after an Editor update.
+
+After installing and restarting the Editor, this MCP server exposes:
+
+| Tool | Description |
+|------|-------------|
+| `cubism_bridge_status` | Check whether the bridge is installed and connected |
+| `cubism_bridge_ops` | List the native operations registered by the bridge |
+| `cubism_bridge_invoke` | Invoke a native operation (whitelist enforced by the bridge registry) |
+
+> Without the bridge these three tools return `BridgeNotInstalled` with setup steps; all other tools are unaffected.
 
 ## Troubleshooting
 

@@ -20,7 +20,7 @@ Live2D Cubism Editor의 외부 연동 API를 **MCP (Model Context Protocol)** �
 ```mermaid
 graph TD
     AI["AI Agent"]
-    MCP["cubism_mcp.py<br/>MCP 서버, 42 도구"]
+    MCP["cubism_mcp.py<br/>MCP 서버, 45 도구"]
     Editor["Cubism Editor 5.4 Alpha<br/>외부 연동 API"]
 
     AI -->|"stdio (MCP 프로토콜)"| MCP
@@ -248,6 +248,23 @@ AI Agent에서 자연어로 Editor를 조작합니다. 예:
 | `EditGlue` | `Id`, ... | 글루 속성 편집 | 「글루 오브젝트의 웨이트 조정」 |
 | `DeleteObject` | `Id` | 파트 팔레트에서 오브젝트 삭제 | 「ID Warp999 오브젝트 삭제」 |
 | `MoveObjectOnPartsPalette` | `Id`, `NewParentId`, `InsertPosition` | 파트 팔레트에서 오브젝트 위치 이동 | 「워프 디포머 '곡면2'를 위치 0으로 이동」 |
+
+## 네이티브 브리지 (선택 사항)
+
+공식 외부 연동 API는 제한된 작업만 제공합니다(예: 회전 디포머의 피벗 위치는 읽기만 가능).
+**모든 네이티브 작업**을 실행하려면 선택적 브리지 구성 요소 `cubism_bridge.dll`을 설치하세요.
+`Live2D_Cubism.jar`는 수정하지 않으며, 페이로드는 `%LocalAppData%\CubismPatch\`에 위치하므로
+Editor 업데이트 후 설치 스크립트를 다시 실행하면 계속 사용할 수 있습니다.
+
+설치 후 Editor를 재시작하면 다음 도구가 추가됩니다:
+
+| 도구 | 설명 |
+|------|------|
+| `cubism_bridge_status` | 브리지 설치 및 연결 상태 확인 |
+| `cubism_bridge_ops` | 브리지에 등록된 네이티브 작업 목록 |
+| `cubism_bridge_invoke` | 지정한 네이티브 작업 실행(화이트리스트는 브리지 레지스트리에서 관리) |
+
+> 브리지가 없으면 이 세 도구는 `BridgeNotInstalled`와 설치 안내를 반환하며, 다른 도구에는 영향이 없습니다.
 
 ## 문제 해결
 

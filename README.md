@@ -20,7 +20,7 @@
 ```mermaid
 graph TD
     AI["AI Agent"]
-    MCP["cubism_mcp.py<br/>MCP Server, 42 Tools"]
+    MCP["cubism_mcp.py<br/>MCP Server, 45 Tools"]
     Editor["Cubism Editor 5.4 Alpha<br/>外部应用集成 API"]
 
     AI -->|"stdio (MCP Protocol)"| MCP
@@ -270,6 +270,20 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 |------|------|------|
 | `cubism_edit` | `action`, `params` | 通用编辑入口（向后兼容） |
 | `cubism_edit_batch` | `actions[]` | 批量编辑（单事务，失败回滚） |
+
+## 原生桥接（可选安装）
+
+官方外部集成 API 只覆盖有限操作（例如旋转变形器的枢轴位置仅可读取、无法写入）。若需要驱动**全部原生操作**，可安装可选的桥接组件 `cubism_bridge.dll`：它不修改 `Live2D_Cubism.jar`，负载全部位于 `%LocalAppData%\CubismPatch\`，编辑器更新后重跑一次安装脚本即可继续使用。
+
+安装并重启 Editor 后，本 MCP 新增以下工具：
+
+| 工具 | 说明 |
+|------|------|
+| `cubism_bridge_status` | 检查桥接是否已安装并连接 |
+| `cubism_bridge_ops` | 列出桥接注册的原生操作 |
+| `cubism_bridge_invoke` | 执行指定原生操作（操作白名单由桥接注册表决定） |
+
+> 未安装桥接时，这三个工具返回 `BridgeNotInstalled` 与安装指引，其余工具不受影响。
 
 ## 常见问题
 

@@ -1596,6 +1596,144 @@ async def cubism_move_object_on_parts_palette(
     return await _run_edit("MoveObjectOnPartsPalette", params, model_uid=model_uid)
 
 
+# ── 原生桥接（CubismBridge：独立 DLL + 编辑器进程内 agent） ──────────────────
+# 桥接提供官方外部 API 之外的原生操作；由 %LocalAppData%\CubismPatch\cubism_bridge.dll
+# 在编辑器 JVM 启动时加载，MCP 通过本机 TCP + 令牌访问。
+
+BRIDGE_PORTS = range(22034, 22055)
+BRIDGE_DIR = os.environ.get("CUBISM_BRIDGE_DIR") or os.path.join(
+    os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "CubismPatch"
+)
+BRIDGE_PORT_FILE = os.path.join(BRIDGE_DIR, "bridge.port")
+BRIDGE_TOKEN_FILE = os.path.join(BRIDGE_DIR, "bridge.token")
+
+
+def _bridge_candidates() -> list[int]:
+    """候选端口：环境变量 > bridge.port 文件 > 默认端口区间。"""
+    ports: list[int] = []
+    env_port = os.environ.get("CUBISM_BRIDGE_PORT")
+    if env_port:
+        try:
+            ports.append(int(env_port))
+        except ValueError:
+            pass
+    try:
+        with open(BRIDGE_PORT_FILE, "r", encoding="utf-8") as f:
+            ports.append(int(f.read().strip()))
+    except (OSError, ValueError):
+        pass
+    for port in BRIDGE_PORTS:
+        if port not in ports:
+            ports.append(port)
+    return ports
+
+
+def _bridge_token() -> str | None:
+    env_token = os.environ.get("CUBISM_BRIDGE_TOKEN")
+    if env_token:
+        return env_token
+    try:
+        with open(BRIDGE_TOKEN_FILE, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return None
+
+
+async def _bridge_call(op: str, args: dict | None = None, timeout: float = 30.0) -> dict:
+    """向桥接发送一个操作；返回结果 dict，失败返回 {"Error": {...}}。"""
+    token = _bridge_token()
+    if token is None:
+        return {"Error": {
+            "ErrorType": "BridgeNotInstalled",
+            "Message": f"未找到桥接令牌文件（{BRIDGE_TOKEN_FILE}），桥接尚未加载。",
+            "Steps": [
+                "1. 确认 %LocalAppData%\\CubismPatch\\cubism_bridge.dll 存在",
+                "2. 若缺少，运行 bridge\\install.bat 后重启 Cubism Editor",
+                "3. 桥接只在编辑器 JVM 中启动（普通工具类 JVM 会跳过）",
+            ],
+        }}
+    last_error = ""
+    for port in _bridge_candidates():
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection("127.0.0.1", port), timeout=2.0
+            )
+        except (OSError, asyncio.TimeoutError) as exc:
+            last_error = f"{port}: {exc}"
+            continue
+        try:
+            request = json.dumps({"id": 1, "token": token, "op": op, "args": args or {}})
+            writer.write(request.encode("utf-8") + b"\n")
+            await writer.drain()
+            line = await asyncio.wait_for(reader.readline(), timeout=timeout)
+            if not line:
+                last_error = f"{port}: 连接被对方关闭"
+                continue
+            data = json.loads(line.decode("utf-8"))
+            if data.get("ok"):
+                return data.get("result", {})
+            error = data.get("error", {})
+            return {"Error": {
+                "ErrorType": error.get("code", "BridgeError"),
+                "Message": error.get("message", ""),
+            }}
+        except (OSError, asyncio.TimeoutError, json.JSONDecodeError) as exc:
+            last_error = f"{port}: {exc}"
+        finally:
+            writer.close()
+    return {"Error": {
+        "ErrorType": "BridgeNotRunning",
+        "Message": f"无法连接桥接（{last_error}）。请确认编辑器正在运行，且本次启动已加载桥接。",
+    }}
+
+
+@mcp.tool()
+async def cubism_bridge_status() -> str:
+    """检查原生桥接（CubismBridge DLL）状态。
+
+    桥接在编辑器 JVM 启动时加载，用于官方外部 API 之外的原生操作。
+    需要先安装 cubism_bridge.dll 并重启编辑器才会生效。
+
+    Returns:
+        JSON {"installed": bool, "tokenFile": bool, "connected": bool, "bridge": {原始响应}}
+    """
+    result = await _bridge_call("bridge.ping")
+    if "Error" in result:
+        return _json({
+            "installed": os.path.isfile(os.path.join(BRIDGE_DIR, "cubism_bridge.dll")),
+            "tokenFile": os.path.isfile(BRIDGE_TOKEN_FILE),
+            "connected": False,
+            "bridge": result,
+        }, indent=2)
+    return _json({"installed": True, "tokenFile": True, "connected": True, "bridge": result}, indent=2)
+
+
+@mcp.tool()
+async def cubism_bridge_ops() -> str:
+    """列出桥接当前注册的原生操作（名称、说明、参数、是否占用 UI 线程）。
+
+    Returns:
+        JSON {"bridgeVersion": str, "editorClassesPresent": bool, "ops": [...]}
+    """
+    result = await _bridge_call("bridge.capabilities")
+    return _json(result, indent=2)
+
+
+@mcp.tool()
+async def cubism_bridge_invoke(op: str, args: dict | None = None) -> str:
+    """执行一个桥接原生操作（操作白名单由桥接注册表决定）。
+
+    Args:
+        op: 操作名，用 cubism_bridge_ops 查询（如 "editor.status"）
+        args: 操作参数（按操作定义传入，可为空）
+
+    Returns:
+        JSON 操作原始结果；失败返回 {"Error": {"ErrorType": ..., "Message": ...}}
+    """
+    result = await _bridge_call(op, args)
+    return _json(result if "Error" in result else {"Result": result}, indent=2)
+
+
 def cli():
     """Entry point for uvx / pip install"""
     mcp.run()
