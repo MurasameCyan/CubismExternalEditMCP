@@ -112,7 +112,8 @@ WebSocket 连接管理，负责：
 ### 推送规则
 
 - **禁止 AI 助手未经用户明确同意执行 `git push`**
-- 本机 `git push` 走 HTTP 代理可能不通（502）时，改用 `gh`（`gh release` / `gh api`）
+- 推送走 SSH：`origin` 的 push URL 已设为 `git@github.com:MurasameCyan/CubismExternalEditMCP.git`。
+  修改 `.github/workflows/` 下的文件必须用 SSH——HTTPS 令牌缺少 `workflow` 权限，会被 GitHub 拒绝。
 
 ### 仓库范围（重要）
 
