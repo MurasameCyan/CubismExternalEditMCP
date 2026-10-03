@@ -264,16 +264,19 @@ After installing and restarting the Editor, this MCP server exposes:
 
 > Without the bridge these three tools return `BridgeNotInstalled` with setup steps; all other tools are unaffected.
 
-**CubismBridge 0.3.0 registers 33 operations**: document open / save / close, object and selection reads / writes,
-rotation-deformer pivots, mesh vertices and warp-deformer control points, keyform mapping, undo / redo,
-PNG/JPEG export, physics reads / writes, and animation creation.
+**CubismBridge 0.4.0 registers 61 operations**: geometry editing, physics, image export and document saving, plus workspace / palette / tool / canvas state, layered PSD, CMOX, SDK2/SDK3 model data, texture atlas creation, animation tracks / parameter keyframes / form animation, and video export.
 
 - Physics imports and global edits support native undo / redo. CMO3 preserves settings groups and FPS; use physics3 JSON to preserve gravity and wind.
 - Animation supports four native targets and CAN3 save / reopen. `editor.document.save` accepts `path`, which is required for untitled documents. Model / animation write failures return errors without retry dialogs.
+- Layered PSD supports original sources and the current pose. CMOX and SDK2/SDK3 exports produce actual model assets. Texture atlas creation supports undo / redo and save / reopen; it uses the native initial layout, not optimized packing.
+- Animation supports model tracks, persistent explicit track names, numeric parameter keyframes and interpolation, frame / scene settings, and form animation entry. MOV/MP4/WebM encoding and decoding have been verified; audio tracks are not supported. Export preserves the existing scene layout and does not automatically center the model.
+- Fixed native operations cover workspace switching, palette visibility, tool switching, and canvas / timeline settings. Failure isolation and mode protection do not imply every palette field is writable.
 - `editor.command.invoke` supports typed arguments and automatic `IDocument` injection. Suspected dialog commands are rejected unless `allowDialog=true`; destructive commands such as delete / exit additionally require `confirm=true`. Manual menu operations are unchanged.
+- `cubism_bridge_invoke` waits up to 190 seconds for a native result, covering the bridge's longest 180-second operation limit. Startup and status probes retain their shorter waits. Restart the MCP service after updating the Python adapter.
+- A disconnect or response timeout after sending a request returns `BridgeOutcomeUnknown` without replaying it on another port. The operation may have completed or still be running; inspect Editor state before deciding whether to retry.
+- Visibility, hierarchy selection and Solo have scoped behavioral verification. `command_loadVisibleMap` swaps two visibility snapshots without adding an undo entry. `command_solo` fixes its targets at activation and clears temporary locks on exit. An empty snapshot or selection can trigger native warnings; static command classification does not guarantee dialog-free execution for every input.
 
-Query `cubism_bridge_ops` for the operation list. **Registration does not establish full native coverage**;
-PSD / CMOX / SDK model data / video exports and remaining animation tracks, keyframes, settings and panels are still being expanded.
+Query `cubism_bridge_ops` for the operation list. **Registration does not establish full native coverage**. There is scoped behavioral evidence for 42 native commands; remaining model commands, multiple views of one document, and further boundaries are still being expanded. All four Solo color / opacity combinations have been verified on the actual canvas; ordinary model export does not include this view isolation. Closing and reopening the model resets Solo and its options. Full Editor coverage is not claimed.
 
 ### Download and install (Releases of this fork)
 

@@ -1788,8 +1788,7 @@ async def _bridge_call(op: str, args: dict | None = None, timeout: float = 30.0)
             await writer.drain()
             line = await asyncio.wait_for(reader.readline(), timeout=timeout)
             if not line:
-                last_error = f"{port}: 连接被对方关闭"
-                continue
+                raise ConnectionError("请求发送后连接关闭，未收到结果")
             data = json.loads(line.decode("utf-8"))
             if data.get("ok"):
                 return data.get("result", {})
@@ -1799,9 +1798,19 @@ async def _bridge_call(op: str, args: dict | None = None, timeout: float = 30.0)
                 "Message": error.get("message", ""),
             }}
         except (OSError, asyncio.TimeoutError, json.JSONDecodeError) as exc:
-            last_error = f"{port}: {exc}"
+            return {"Error": {
+                "ErrorType": "BridgeOutcomeUnknown",
+                "Message": (
+                    f"请求 {op} 已发送，但未能确认结果（{type(exc).__name__}: {exc}）。"
+                    "操作可能仍在执行；请先查询编辑器状态，不要直接重试。"
+                ),
+            }}
         finally:
             writer.close()
+            try:
+                await writer.wait_closed()
+            except OSError:
+                pass
     return {"Error": {
         "ErrorType": "BridgeNotRunning",
         "Message": f"无法连接桥接（{last_error}）。请确认编辑器正在运行，且本次启动已加载桥接。",
@@ -1851,7 +1860,7 @@ async def cubism_bridge_invoke(op: str, args: dict | None = None) -> str:
     Returns:
         JSON 操作原始结果；失败返回 {"Error": {"ErrorType": ..., "Message": ...}}
     """
-    result = await _bridge_call(op, args)
+    result = await _bridge_call(op, args, timeout=190.0)
     return _json(result if "Error" in result else {"Result": result}, indent=2)
 
 
