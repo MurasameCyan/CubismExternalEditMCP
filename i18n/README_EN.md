@@ -42,7 +42,7 @@ graph TD
 | Component | Version |
 |-----------|---------|
 | Python | ≥ 3.10 |
-| Cubism Editor | 5.4 Alpha (valid until 2026-09-14) |
+| Cubism Editor | 5.4 Alpha (expiration varies by build; consult the official information for your installed version) |
 | OS | Windows / macOS |
 
 ## Usage
@@ -264,7 +264,7 @@ After installing and restarting the Editor, this MCP server exposes:
 
 > Without the bridge these three tools return `BridgeNotInstalled` with setup steps; all other tools are unaffected.
 
-**CubismBridge 0.4.0 registers 61 operations**: geometry editing, physics, image export and document saving, plus workspace / palette / tool / canvas state, layered PSD, CMOX, SDK2/SDK3 model data, texture atlas creation, animation tracks / parameter keyframes / form animation, and video export.
+**CubismBridge 0.7.0 registers 73 native operations; the MCP tool count remains 45**. Existing capabilities include geometry editing, physics, image export, document saving, workspace / palette / tool / canvas state, layered PSD, CMOX, SDK2/SDK3 model data, texture atlas creation, animation tracks / parameter keyframes / form animation, and video export. Additions and limitations for 0.5.0–0.7.0 are described below.
 
 - Physics imports and global edits support native undo / redo. CMO3 preserves settings groups and FPS; use physics3 JSON to preserve gravity and wind.
 - Animation supports four native targets and CAN3 save / reopen. `editor.document.save` accepts `path`, which is required for untitled documents. Model / animation write failures return errors without retry dialogs.
@@ -274,13 +274,70 @@ After installing and restarting the Editor, this MCP server exposes:
 - `editor.command.invoke` supports typed arguments and automatic `IDocument` injection. Suspected dialog commands are rejected unless `allowDialog=true`; destructive commands such as delete / exit additionally require `confirm=true`. Manual menu operations are unchanged.
 - `cubism_bridge_invoke` waits up to 190 seconds for a native result, covering the bridge's longest 180-second operation limit. Startup and status probes retain their shorter waits. Restart the MCP service after updating the Python adapter.
 - A disconnect or response timeout after sending a request returns `BridgeOutcomeUnknown` without replaying it on another port. The operation may have completed or still be running; inspect Editor state before deciding whether to retry.
+- Native responses are bounded at 64 MiB, supporting results larger than 64 KiB such as per-frame physics output. Oversized or unparseable responses also return `BridgeOutcomeUnknown` without replay. Inspect actual state; a transport failure does not mean the operation was not executed.
 - Visibility, hierarchy selection and Solo have scoped behavioral verification. `command_loadVisibleMap` swaps two visibility snapshots without adding an undo entry. `command_solo` fixes its targets at activation and clears temporary locks on exit. An empty snapshot or selection can trigger native warnings; static command classification does not guarantee dialog-free execution for every input.
 
-Query `cubism_bridge_ops` for the operation list. **Registration does not establish full native coverage**. There is scoped behavioral evidence for 42 native commands; remaining model commands, multiple views of one document, and further boundaries are still being expanded. All four Solo color / opacity combinations have been verified on the actual canvas; ordinary model export does not include this view isolation. Closing and reopening the model resets Solo and its options. Full Editor coverage is not claimed.
+Query `cubism_bridge_ops` for the operation list. **Registration does not establish full native coverage**. There is scoped behavioral evidence for 150 native command names, not every input to those commands or the whole Editor; dedicated operations are not counted as additional verified menu commands. All four Solo color / opacity combinations have been verified on the actual canvas; ordinary model export does not include this view isolation. Closing and reopening the model resets Solo and its options.
+
+### Additions and limitations in 0.5.0–0.7.0
+
+All operations below use `op` / `args` through `cubism_bridge_invoke`; no additional MCP tool names are needed. Consult `cubism_bridge_ops` for the version actually loaded.
+
+| Operation | Usage and limits |
+|-----------|------------------|
+| `editor.export.moc` | `path` targets a `.moc3`; its parent directory must exist and the model needs atlas bindings. Exports MOC only, not PNG/JSON. Optional `mocVersion` / `pixelsPerUnit`; default PPU comes from model export settings or native defaults, not the old MOC. |
+| `editor.export.modeldata.update` | `path` is an existing runtime package directory; `include` must be explicit and nonempty. Use `["moc"]` for MOC only. Allowed categories: `moc/textures/physics/userdata/displayInfo/motionsync/paramctrl/model3`, not `all`. Unrelated files are not deleted. |
+| `editor.physics.step` | Copies parameter and physics state for isolated simulation, leaving the active model and undo history unchanged. `inputs` maps parameter IDs to fixed values; `frames` is 1–10000; `fps` / `dt` are mutually exclusive. Calls are independent, even with `reset=false`. Currently reports `gravityApplied=false`; the final frame delta does not guarantee convergence for arbitrary inputs. |
+| `editor.psd.layers` / `editor.psd.import` | Query source GUIDs and replacement eligibility first, then import 8-bit PSD with `path` and `mode`: `newModel` / `addImage` / `addArtMeshes` / `replace`. Replacement requires `target`. New meshes are not automatically bound to existing deformers. Replacement preserves existing geometry / bindings / parameter keyforms, but new layers and size changes still require texture and binding checks. |
+| `editor.mesh.generate` | Supply one ArtMesh `id` and integer `outerDensity` / `innerDensity` (10–200; smaller means denser). Rebuilds topology and remaps all keyforms, not an exact target vertex count. Normal modeling mode only; locked objects and Glue participants are rejected. |
+| `editor.canvas.guides.get` / `editor.canvas.guides.set` | Guides use model canvas pixels, top-left origin, Y down. `horizontal` / `vertical` arrays replace that entire axis; omit to preserve, use `[]` to clear, and specify at least one axis. Display / snapping preferences are unchanged. Supports native undo / redo. |
+| `editor.resources.references` / `editor.resources.remove` | Query all resource references by native GUID, including inactive texture inputs, and inspect `deletable`. Safe deletion is limited to unreferenced replaced PSD sources or atlases; no automatic cleanup. |
+| `editor.textureAtlas.get` / `editor.textureAtlas.update` | Read or refresh / rename / resize / re-layout an existing atlas by native `guid`. Preserves GUID, order and membership; no atlas merging, member addition / removal, or migration of references from other atlases. Short examples follow. |
+
+- Runtime package updates regenerate explicitly selected JSON and may discard custom fields; select `model3` only when intentionally rewriting the entry file. Check `updated` / `skipped` / warnings and PPU. Optional `backupDir` must already exist and not overlap the target; existing backups are not overwritten and symlink/junction paths are rejected. Recoverable failures trigger restoration attempts, but there is no multi-file reader isolation or power-loss recovery guarantee. If restoration is incomplete, stop writing and recover the package before proceeding; do not blindly retry.
+- Fixes include texture-wrapper / UV restoration during MOC export after reopening a model, and deletion with parameter transfer through bridge `command_deleteDeformerAndSetParam`. This does not cover arbitrary Morph / interpolation combinations; unsupported cases are explicitly rejected. The global native mesh menu UV / dirty issue is not fixed.
+- The 0.6.0 multi-scene close fix covers **bridge-initiated closing only**, returning `closed` / `cancelled`; cancellation may also reflect a save failure. Save before closing; a timeout is not proof of closure and must not trigger automatic replay. `command_closeAll` is non-atomic and may close other files after one is cancelled. Manual menus, exit and other native close entry points are outside this fix.
+
+### Short examples: atlas updates and safe resource deletion
+
+Save the model first and use normal modeling mode. Each JSON object below is one `cubism_bridge_invoke` argument object. Replace placeholder GUIDs with values queried from the current model; names and array indices are not resource identifiers.
+
+```json
+{"op":"editor.resources.references","args":{}}
+```
+
+```json
+{"op":"editor.textureAtlas.get","args":{"guid":"<ATLAS_GUID>"}}
+```
+
+`get` returns dimensions, lock state and `images`. The default `layout:"keep"` preserves layout, but `update` **still refreshes the pixel cache and creates an undo transaction**. Optional `name` / `width` / `height` retain their old values when omitted; dimensions must be powers of two from 32 to 16384.
+
+```json
+{"op":"editor.textureAtlas.update","args":{"guid":"<ATLAS_GUID>","layout":"keep"}}
+```
+
+Use the following for native grid re-layout when appropriate. 4096 is only an example size, not suitable for every model. `grid` may shrink images; it is neither optimal packing nor a lossless-resolution guarantee. `autoLayoutLock` or insufficient cell padding causes rejection.
+
+```json
+{"op":"editor.textureAtlas.update","args":{"guid":"<ATLAS_GUID>","width":4096,"height":4096,"layout":"grid"}}
+```
+
+- For explicit layout, use `placements:[{"modelImageGuid":"<IMAGE_GUID>","matrix":[m00,m10,m01,m11,m02,m12]}]`. Obtain the GUID from `get` → `images[].imageGuid`, start with that member's `modelImageToAtlas`, and change only the required components. The six coefficients map image-local pixels to atlas pixels, not normalized UVs. Matrices must be finite and invertible; only existing members can be changed, and `placements` cannot be combined with `grid`.
+- New layout / binding matrices are committed at native float32 precision. Use the returned `storagePrecision` and actual `after`, not the requested double values, as final state. Unchanged matrices under `keep` remain untouched. Callers must prevent cropping and overlap; successful execution does not establish layout quality.
+- Independently locked caches, ArtPath brush references or ambiguous re-layout input associations are rejected. Real re-layout must change the relevant UVs; check sampling correspondence rather than forcing old UVs to remain. Scoped atlas verification covered exact undo / redo, undo across a subsequent creation, commit-failure and history recovery, and source / layout / RGBA persistence in a new JVM. Real Core checks covered geometry, texture indices and UV correspondence for 45 drawables; this is not a claim of new SDK viewer screenshot verification.
+- After writing, query `get` / `references` again and check target and non-target resources, the Editor canvas, actual MOC/PNG sampling and save / reopen. Even an ordinary successful undo that exactly restores data may leave native `dirty=true`; inspect the data and save explicitly, rather than undoing repeatedly or manually clearing dirty. This differs from commit-failure recovery. Stop writing on an unknown outcome or incomplete recovery; never blindly replay.
+
+Before deletion, **query `editor.resources.references` again**. Only for a resource currently marked `deletable:true`, use `kind:"psdSource"` or `kind:"textureAtlas"` with its `guid` and `confirm:true`:
+
+```json
+{"op":"editor.resources.remove","args":{"kind":"psdSource","guid":"<DELETABLE_SOURCE_GUID>","confirm":true}}
+```
+
+Active sources and any referenced resources, including old atlases referenced by inactive inputs, are rejected. There is no safe-delete operation for model images. Deletion supports native undo / redo; recheck references and save afterward. Atlas updates do not perform cleanup for you.
 
 ### Download and install (Releases of this fork)
 
-The bridge ships as a standalone DLL and does not modify `Live2D_Cubism.jar`:
+The bridge is distributed as **standalone DLL binary assets** without modifying `Live2D_Cubism.jar`; this update does not publish a PyPI package. Before upgrading to 0.7.0, confirm that `bridge-v0.7.0` and the assets below are actually available in Releases. This section does not establish that publication or your local upgrade has completed:
 <https://github.com/MurasameCyan/CubismExternalEditMCP/releases>
 
 | Asset | Description |
@@ -290,11 +347,13 @@ The bridge ships as a standalone DLL and does not modify `Live2D_Cubism.jar`:
 | `install.bat` / `uninstall.bat` | Install / uninstall; usage: `install.bat "<Live2D Cubism install dir>"` |
 | `SHA256SUMS.txt` | SHA-256 checksums |
 
-Install:
+Install / upgrade:
 
-**Generic channel**: run `install.bat "<Live2D Cubism install dir>"`, then restart the editor;
+1. Save your work and exit the Editor. Download the listed assets from the same version and verify them against `SHA256SUMS.txt`.
+2. **Generic jli proxy channel**: run `install.bat "<Live2D Cubism install dir>"`. The editor's `app\jre\bin\cubism_bridge.dll` takes precedence over the user-directory copy; updating only the lower-priority copy does not update the loaded version.
+3. Restart the MCP service after updating the Python adapter, and restart the Editor. Call `cubism_bridge_status`, invoke `{"op":"bridge.ping","args":{}}` through `cubism_bridge_invoke`, and use `cubism_bridge_ops` to confirm the loaded version is 0.7.0 with 73 registered operations. A downloaded filename alone does not prove a successful upgrade.
 
-> The bridge binaries target Cubism Editor 5.4.00 alpha2; a major editor update may require a new bridge release.
+> The bridge binaries target Cubism Editor 5.4.00 alpha2 on Windows; a major editor update may require a new bridge release.
 
 ## Troubleshooting
 
@@ -326,7 +385,7 @@ pip install -r requirements.txt
 
 ## Notes
 
-- **Alpha Limitations**: Cubism Editor 5.4 Alpha expires on 2026-09-14; upgrade required afterwards
+- **Alpha Limitations**: Expiration varies by Alpha build; consult the official information for your installed version and upgrade when it expires
 - **Restart Re-auth**: Re-enable external integration and re-check permissions after each Editor restart
 - **Single Model**: The MCP server operates on one open model at a time
 - **Transaction Safety**: Edit operations are automatically wrapped with `EditBegin/EditEnd`; batch operations auto `Cancel` and rollback on failure

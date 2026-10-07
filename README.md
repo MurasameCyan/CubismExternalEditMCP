@@ -42,7 +42,7 @@ graph TD
 | 组件 | 版本 |
 |------|------|
 | Python | ≥ 3.10 |
-| Cubism Editor | 5.4 Alpha（有效期至 2026-09-14） |
+| Cubism Editor | 5.4 Alpha（有效期随构建变化，以所安装版本的官方说明为准） |
 | 操作系统 | Windows / macOS |
 
 ## 使用流程
@@ -51,7 +51,7 @@ graph TD
 
 **复制以下提示词发给你的 AI Agent**：
 
-> 根据 https://github.com/nana7chi/CubismExternalEditMCP/blob/master/README.md 完成 cubism-mcp 的安装和配置。如果电脑上还没有 `uv`，请先帮我安装。配置完成后告诉我是否就绪。
+> 根据 https://github.com/MurasameCyan/CubismExternalEditMCP/blob/master/README.md 完成 cubism-mcp 的安装和配置。如果电脑上还没有 `uv`，请先帮我安装。配置完成后告诉我是否就绪。
 
 
 ### 第一步：安装 uv（仅一次）
@@ -285,7 +285,7 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 
 > 未安装桥接时，这三个工具返回 `BridgeNotInstalled` 与安装指引，其余工具不受影响。
 
-**CubismBridge 0.4.0 注册 61 个操作**：保留几何编辑、物理、图片导出与文档保存能力，新增工作区 / 面板 / 工具 / 画布状态、分层 PSD、CMOX、SDK2/SDK3 模型数据、纹理集创建、动画轨道 / 参数关键帧 / 形状动画及视频导出。
+**CubismBridge 0.7.0 注册 73 个原生操作，MCP 工具总数仍为 45 个**。保留几何编辑、物理、图片导出、文档保存、工作区 / 面板 / 工具 / 画布状态、分层 PSD、CMOX、SDK2/SDK3 模型数据、纹理集创建、动画轨道 / 参数关键帧 / 形状动画及视频导出；0.5.0–0.7.0 的新增能力和边界见下文。
 
 - 物理导入和全局修改支持原生撤销 / 重做；CMO3 保存设置组与 FPS，重力 / 风需通过 physics3 JSON 保存。
 - 动画支持四种原生目标及 CAN3 保存重开；`editor.document.save` 可指定 `path`，未命名文档必须提供路径。模型 / 动画写入失败返回错误，不弹重试框。
@@ -295,13 +295,70 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 - `editor.command.invoke` 支持类型化参数与 `IDocument` 自动注入；疑似弹窗命令默认拒绝，需显式 `allowDialog=true`，删除 / 退出等危险命令另需 `confirm=true`。手动菜单操作不受影响。
 - `cubism_bridge_invoke` 等待原生结果最多 190 秒，以覆盖桥接最长 180 秒的操作上限；启动探测和状态查询仍使用各自短等待。更新 Python 适配层后需重启 MCP 服务使其生效。
 - 请求发送后若连接断开或响应超时，返回 `BridgeOutcomeUnknown`，不换端口重发。此时操作可能已生效或仍在执行；先查询编辑器状态，再决定是否重新操作。
+- 原生响应读取上限为 64 MiB，支持物理逐帧等超过 64 KiB 的结果；响应超限或无法解析也返回 `BridgeOutcomeUnknown` 且不重放。调用方仍须检查实际状态，不能把传输失败当作未执行。
 - 可见性、层级选择与 Solo 已补行为验收；`command_loadVisibleMap` 交换两套可见性而不增加撤销项，`command_solo` 固定开启时的目标、退出清除临时锁。空映射 / 空选择等条件可能触发原生警告，命令静态分类不保证每种输入都无弹窗。
 
-操作清单用 `cubism_bridge_ops` 查询。**已注册不等于全部原生操作已验证**；已有 42 个原生命令具备限定场景的行为证据，其余模型命令、同文档多视图和更多边界仍在扩展。Solo 颜色 / 透明度四组合已验证实际画布；普通模型导出不包含这种视图隔离效果。关闭重开模型会复位 Solo 及其选项。当前不宣称完整编辑器覆盖。
+操作清单用 `cubism_bridge_ops` 查询。**已注册不等于全部原生操作已验证**；已有 150 个原生命令名称具备限定场景的行为证据，不代表这些命令的全部输入或完整 Editor 覆盖，专用接口也不计作额外菜单命令通过。Solo 颜色 / 透明度四组合已验证实际画布；普通模型导出不包含这种视图隔离效果。关闭重开模型会复位 Solo 及其选项。
+
+### 0.5.0–0.7.0 新增能力与限制
+
+以下均通过 `cubism_bridge_invoke` 的 `op` / `args` 调用，无需新增 MCP 工具名；参数以实际加载版本的 `cubism_bridge_ops` 为准。
+
+| 操作 | 用法与边界 |
+|------|------------|
+| `editor.export.moc` | `path` 指向 `.moc3`，父目录须已存在且模型须有图集绑定；仅导出 MOC，不生成 PNG/JSON。可显式传 `mocVersion` / `pixelsPerUnit`；默认 PPU 来自模型导出设置或原生默认值，不从旧 MOC 反推。 |
+| `editor.export.modeldata.update` | `path` 为已有运行包目录，`include` 必须显式非空；只更新 MOC 用 `["moc"]`。允许 `moc/textures/physics/userdata/displayInfo/motionsync/paramctrl/model3`，不接受 `all`；不删除无关文件。 |
+| `editor.physics.step` | 隔离复制参数与物理状态，不改活动模型或撤销历史。`inputs` 为参数 ID→固定值，`frames` 为 1–10000；`fps` / `dt` 互斥。每次调用独立，`reset=false` 也不续接上次仿真；当前返回 `gravityApplied=false`，末帧差值不保证任意输入收敛。 |
+| `editor.psd.layers` / `editor.psd.import` | 先查素材 GUID 与可替换状态，再以 `path` 和 `mode` 导入 8-bit PSD；支持 `newModel` / `addImage` / `addArtMeshes` / `replace`，替换须给 `target`。新网格不自动绑定旧变形器；替换保留旧几何 / 绑定 / 参数键形，但新图层和尺寸变化仍需核对纹理与绑定。 |
+| `editor.mesh.generate` | 指定单个 ArtMesh `id` 及整数 `outerDensity` / `innerDensity`（10–200，越小越密）；重建拓扑并重映射全部关键形状，不是指定精确点数。仅普通建模模式，拒绝锁定或参与 Glue 的对象。 |
+| `editor.canvas.guides.get` / `editor.canvas.guides.set` | 参考线为模型画布像素，左上原点、Y 向下。`horizontal` / `vertical` 数组整体替换该轴，省略保留，`[]` 清空，至少指定一轴；不修改显示 / 吸附偏好。支持原生撤销 / 重做。 |
+| `editor.resources.references` / `editor.resources.remove` | 按原生 GUID 查询全部资源引用（含非活动纹理输入）与 `deletable` 判定；仅安全删除无引用的已替换 PSD 源或图集，不自动清理。 |
+| `editor.textureAtlas.get` / `editor.textureAtlas.update` | 按原生 `guid` 读取或刷新 / 改名 / 改尺寸 / 重排既有图集；保留 GUID、顺序和成员，不合并图集、不增删成员、不迁移其他图集引用。短例见下。 |
+
+- 运行包更新会重写明确选中的 JSON，可能丢失手工字段；只有确需重写入口时才选 `model3`。核对 `updated` / `skipped` / warnings 及 PPU；可用不与目标重叠的已有 `backupDir`，不覆盖旧备份，拒绝 symlink/junction 路径。可捕获失败会尝试恢复，但不保证多文件读取隔离或断电恢复；若恢复未完成，停止写入并先恢复运行包，不盲目重试。
+- 已修复重开模型后 MOC 导出的纹理包装 / UV 恢复，以及桥接 `command_deleteDeformerAndSetParam` 的删除并传参问题；不代表任意 Morph / 插值组合可用，不支持的情况明确拒绝，也未修复全局原生网格菜单的 UV / dirty 问题。
+- 0.6.0 修复的是**桥接发起的多场景关闭**，返回 `closed` / `cancelled`；取消也可能来自保存失败。先保存再关闭，不把超时当作已关闭或自动重放。`command_closeAll` 非原子，某文件取消后仍可关闭其他文件；手工菜单、退出及其他原生关闭入口不在修复范围。
+
+### 图集更新与资源安全删除短例
+
+先保存模型，在普通建模模式下依次调用；下面每个 JSON 对象都是一次 `cubism_bridge_invoke` 的参数。占位 GUID 必须替换为当前模型查询所得的真实值，不能使用名称或数组下标代替。
+
+```json
+{"op":"editor.resources.references","args":{}}
+```
+
+```json
+{"op":"editor.textureAtlas.get","args":{"guid":"<ATLAS_GUID>"}}
+```
+
+`get` 返回尺寸、锁定状态及 `images`；默认 `layout:"keep"` 保留布局，但 `update` **仍会刷新像素缓存并产生撤销事务**。可选 `name` / `width` / `height` 省略时保持旧值，尺寸须为 32–16384 的 2 次幂。
+
+```json
+{"op":"editor.textureAtlas.update","args":{"guid":"<ATLAS_GUID>","layout":"keep"}}
+```
+
+需要原生网格重排时可用下例；4096 只是示例尺寸，不应直接套用所有模型。`grid` 可能缩小素材，不是最优装箱或分辨率无损保证；存在 `autoLayoutLock` 或格子留白不足时拒绝。
+
+```json
+{"op":"editor.textureAtlas.update","args":{"guid":"<ATLAS_GUID>","width":4096,"height":4096,"layout":"grid"}}
+```
+
+- 精确布局用 `placements:[{"modelImageGuid":"<IMAGE_GUID>","matrix":[m00,m10,m01,m11,m02,m12]}]`，其中 GUID 来自 `get` 的 `images[].imageGuid`，矩阵以其 `modelImageToAtlas` 为起点，只改需要的分量。六系数表示图像局部像素→图集像素，不是归一化 UV；必须有限、可逆，只能改既有成员，不能与 `grid` 同用。
+- 新布局 / 绑定矩阵按原生 float32 精度提交；使用返回的 `storagePrecision` 和实际 `after`，不要把请求中的 double 当作最终值。`keep` 未改矩阵保持不变。调用者负责避免越界裁切和素材重叠；成功返回不代表布局质量通过。
+- 独立锁定缓存、ArtPath 画笔引用或重排输入无法唯一关联时会拒绝。真实重排需要改变相关 UV，验收应核对采样对应关系，而不是强留旧 UV。图集专项验收已覆盖精确撤销 / 重做、跨创建撤销、提交失败与历史恢复，以及新 JVM 重开的源 / 布局 / RGBA；真实 Core 的 45 个 drawable 已核对几何、纹理索引及 UV 对应，不代表新增 SDK 查看器截图验收。
+- 写后重新 `get` / `references`，检查目标与非目标资源、Editor 画面、MOC/PNG 实际采样及保存重开。普通成功撤销即使精确恢复数据，原生 `dirty` 仍可能为 `true`；核对后显式保存，不重复撤销、不手工清除 dirty。这与提交失败后的恢复是不同路径；结果未知或恢复未完成时停止写入，禁止盲目重放。
+
+删除前**重新查询** `editor.resources.references`，仅对当前 `deletable:true` 的资源使用 `kind:"psdSource"` 或 `kind:"textureAtlas"`，提供其 `guid` 和 `confirm:true`：
+
+```json
+{"op":"editor.resources.remove","args":{"kind":"psdSource","guid":"<DELETABLE_SOURCE_GUID>","confirm":true}}
+```
+
+活动源、任何仍被引用的资源（包括被非活动输入引用的旧图集）均拒绝删除；模型图像没有安全删除入口。删除支持原生撤销 / 重做；完成后再次核对引用并保存，图集更新不会代为清理资源。
 
 ### 下载与安装（本 fork 的 Releases）
 
-桥接以**独立 DLL** 形式发布，不需要修改 `Live2D_Cubism.jar`：
+桥接以**独立 DLL 二进制资产**分发，不需要修改 `Live2D_Cubism.jar`，本次不发布 PyPI 包。升级到 0.7.0 前，请在 Releases 确认 `bridge-v0.7.0` 及下列资产实际可用；本节不代表发布或本机升级已经完成：
 <https://github.com/MurasameCyan/CubismExternalEditMCP/releases>
 
 | 资产 | 说明 |
@@ -311,11 +368,13 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 | `install.bat` / `uninstall.bat` | 安装 / 卸载，用法：`install.bat "<Live2D Cubism 安装目录>"` |
 | `SHA256SUMS.txt` | SHA-256 校验和 |
 
-安装：
+安装 / 升级：
 
-**通用通道**：运行 `install.bat "<Live2D Cubism 安装目录>"`，然后重启编辑器；
+1. 保存工作并退出 Editor，下载同一版本的上述资产，用 `SHA256SUMS.txt` 核对校验和。
+2. **通用 jli 代理通道**：运行 `install.bat "<Live2D Cubism 安装目录>"`。编辑器 `app\jre\bin\cubism_bridge.dll` 优先于用户目录中的同名 DLL；只更新低优先级副本不会升级实际加载版本。
+3. 更新 Python 适配层后重启 MCP 服务，并重启 Editor。调用 `cubism_bridge_status`，再通过 `cubism_bridge_invoke` 执行 `{"op":"bridge.ping","args":{}}`，并用 `cubism_bridge_ops` 核对实际版本为 0.7.0、注册 73 项；不要只凭下载文件名判断升级成功。
 
-> 桥接二进制适配 Cubism Editor 5.4.00 alpha2；编辑器大版本升级后若原生 API 变动，可能需要重新发布桥接。
+> 桥接二进制适配 Windows 上的 Cubism Editor 5.4.00 alpha2；编辑器大版本升级后若原生 API 变动，可能需要重新发布桥接。
 
 
 ## 常见问题
@@ -348,7 +407,7 @@ pip install -r requirements.txt
 
 ## 注意事项
 
-- **Alpha 版本限制**：Cubism Editor 5.4 Alpha 有效期至 2026-09-14，到期后需升级
+- **Alpha 版本限制**：有效期随 Alpha 构建变化，以所安装版本的官方说明为准；到期后需升级
 - **重启授权**：每次重启 Editor 都需要重新开启外部应用集成并勾选权限
 - **单模型**：MCP 服务同时只能操作一个打开的模型
 - **事务安全**：编辑操作自动包裹 `EditBegin/EditEnd`，批量操作失败自动 `Cancel` 回滚

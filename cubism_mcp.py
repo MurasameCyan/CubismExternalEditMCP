@@ -1722,6 +1722,7 @@ async def cubism_move_object_on_parts_palette(
 # MCP 通过本机 TCP + 令牌访问。
 
 BRIDGE_PORTS = range(22034, 22055)
+BRIDGE_RESPONSE_LIMIT = 64 * 1024 * 1024  # Native physics traces can exceed asyncio's 64 KiB default.
 BRIDGE_DIR = os.environ.get("CUBISM_BRIDGE_DIR") or os.path.join(
     os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "CubismPatch"
 )
@@ -1777,7 +1778,7 @@ async def _bridge_call(op: str, args: dict | None = None, timeout: float = 30.0)
     for port in _bridge_candidates():
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection("127.0.0.1", port), timeout=2.0
+                asyncio.open_connection("127.0.0.1", port, limit=BRIDGE_RESPONSE_LIMIT), timeout=2.0
             )
         except (OSError, asyncio.TimeoutError) as exc:
             last_error = f"{port}: {exc}"
@@ -1797,7 +1798,7 @@ async def _bridge_call(op: str, args: dict | None = None, timeout: float = 30.0)
                 "ErrorType": error.get("code", "BridgeError"),
                 "Message": error.get("message", ""),
             }}
-        except (OSError, asyncio.TimeoutError, json.JSONDecodeError) as exc:
+        except (OSError, asyncio.TimeoutError, ValueError) as exc:
             return {"Error": {
                 "ErrorType": "BridgeOutcomeUnknown",
                 "Message": (
