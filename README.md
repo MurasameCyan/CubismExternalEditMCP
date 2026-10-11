@@ -285,7 +285,7 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 
 > 未安装桥接时，这三个工具返回 `BridgeNotInstalled` 与安装指引，其余工具不受影响。
 
-**CubismBridge 0.7.0 注册 73 个原生操作，MCP 工具总数仍为 45 个**。保留几何编辑、物理、图片导出、文档保存、工作区 / 面板 / 工具 / 画布状态、分层 PSD、CMOX、SDK2/SDK3 模型数据、纹理集创建、动画轨道 / 参数关键帧 / 形状动画及视频导出；0.5.0–0.7.0 的新增能力和边界见下文。
+**CubismBridge 0.7.1 注册 73 个原生操作，MCP 工具总数仍为 45 个**。保留几何编辑、物理、图片导出、文档保存、工作区 / 面板 / 工具 / 画布状态、分层 PSD、CMOX、SDK2/SDK3 模型数据、纹理集创建、动画轨道 / 参数关键帧 / 形状动画及视频导出；0.7.1 修复与既有 0.5.0–0.7.0 能力和边界见下文。
 
 - 物理导入和全局修改支持原生撤销 / 重做；CMO3 保存设置组与 FPS，重力 / 风需通过 physics3 JSON 保存。
 - 动画支持四种原生目标及 CAN3 保存重开；`editor.document.save` 可指定 `path`，未命名文档必须提供路径。模型 / 动画写入失败返回错误，不弹重试框。
@@ -298,7 +298,26 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 - 原生响应读取上限为 64 MiB，支持物理逐帧等超过 64 KiB 的结果；响应超限或无法解析也返回 `BridgeOutcomeUnknown` 且不重放。调用方仍须检查实际状态，不能把传输失败当作未执行。
 - 可见性、层级选择与 Solo 已补行为验收；`command_loadVisibleMap` 交换两套可见性而不增加撤销项，`command_solo` 固定开启时的目标、退出清除临时锁。空映射 / 空选择等条件可能触发原生警告，命令静态分类不保证每种输入都无弹窗。
 
-操作清单用 `cubism_bridge_ops` 查询。**已注册不等于全部原生操作已验证**；已有 150 个原生命令名称具备限定场景的行为证据，不代表这些命令的全部输入或完整 Editor 覆盖，专用接口也不计作额外菜单命令通过。Solo 颜色 / 透明度四组合已验证实际画布；普通模型导出不包含这种视图隔离效果。关闭重开模型会复位 Solo 及其选项。
+操作清单用 `cubism_bridge_ops` 查询。**已注册不等于全部原生操作已验证**；累计 206 个唯一原生命令名称具备限定场景的行为证据，不代表这些命令的全部输入或完整 Editor 覆盖，专用接口也不计作额外菜单命令通过。Solo 颜色 / 透明度四组合已验证实际画布；普通模型导出不包含这种视图隔离效果。关闭重开模型会复位 Solo 及其选项。
+
+### 0.7.1 修复与限制
+
+本版通过既有 `editor.command.invoke` 桥入口修复以下行为，不新增原生操作或 MCP 工具：
+
+- **图集生成原图**：`command_generateRawImageFromTextureAtlas` 保留原生栅格化算法；要求网格已引用锁定图集，无合格图集时在编辑前拒绝。撤销 / 重做完整恢复原图包装、图像组 / ModelImage、全部输入、图集成员 / 锁 / 缓存及 UV；中途或提交失败恢复原历史、redo 和时钟，并保留真实异常原因。已验证跨图集更新撤销、失败恢复及新 JVM 保存重开。
+- **预览的语义 UV 恢复**：`command_previewReductionRatio` 已验证 1→2→4→8→1，源数据、UV 和历史保持且 `dirty=false`。仅此命令可将 ModelImage 缓存分辨率变化视为等价；仍核对源图、尺寸、滤镜、层表、作者矩阵和几何，不把该例外用于真实图集布局变化。
+- **网格完成与原生图集窗口**：网格完成路径（含 `command_endMeshEditor`）统一保护 UV；已验证 reset / connect / axis / paste、startOrEnd(true/false) 的工作 / Main 撤销重做及保存重开。原生图集窗口另外验证了创建、两级取消、尺寸变化、工作 / Main 历史和与专用 update 的交叉撤销；真实尺寸 / 布局变化仍应改变必要 UV，撤销恢复原采样关系，不强留旧 UV。
+- **完整轮廓拟合**：零参数 `command_fitArtMeshContour` 使用原生 alpha 命中的完整四邻边界，包含全部连通块与内孔；按画布欧氏距离选择最近整数样本，同距按行优先。保留原生父级投影，仅改当前关键形状选中点的位置，不解绑父级或改写其他形状 / 样式 / 绑定；无变化不增加历史。已验证撤销 / 重做、失败恢复和新 JVM 重开。
+- **主画布双栏**：仅为 `command_divMainCanvas(Map)` 的具名键 `SGSplitLayoutSplitMode` 将字符串转换为原生枚举，不修改调用者 Map 或其他命令的 Map 语义。缺键、null、非字符串、未知枚举或缺少原生类返回 `NoSuchMethodException`，不执行命令。仅 `DOUBLE_H` 已验证画布区域 1→2，模型数据、引用、历史及 `dirty=false` 保持；`SINGLE` 曾返回成功但区域数未减少，不能作为重置保证，其他布局未验。
+
+通过 `cubism_bridge_invoke` 请求已验证的双栏布局：
+
+```json
+{"op":"editor.command.invoke","args":{"name":"command_divMainCanvas","args":[{"SGSplitLayoutSplitMode":"DOUBLE_H"}]}}
+```
+
+- 修复**仅限桥入口**，不修复手工菜单或旧历史。普通撤销即使恢复数据，或取消网格工作编辑后，仍可能保留 `dirty=true`；核对后显式保存，不强清 dirty。`command_screenShotToArtMesh`（截图转网格）的撤销仍有残留部件 / UV 未恢复风险，未在本版修复。
+- 原生半透明裁剪差异未改，图集转原图不是全像素无损保证；生成图像的 `autoManaged` 仍由原生合并集表派生。轮廓拟合是离散边界采样，不保证连续曲线；单像素区域允许收敛，普通撤销 / 重做仍可能清空 UI 点选择。超大稀疏区域、退化弯曲变形器和 ArtPath 导出未验。
 
 ### 0.5.0–0.7.0 新增能力与限制
 
@@ -358,8 +377,8 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 
 ### 下载与安装（本 fork 的 Releases）
 
-桥接以**独立 DLL 二进制资产**分发，不需要修改 `Live2D_Cubism.jar`，本次不发布 PyPI 包。升级到 0.7.0 前，请在 Releases 确认 `bridge-v0.7.0` 及下列资产实际可用；本节不代表发布或本机升级已经完成：
-<https://github.com/MurasameCyan/CubismExternalEditMCP/releases>
+桥接以**独立 DLL 二进制资产**分发，不需要修改 `Live2D_Cubism.jar`，本次不发布 PyPI 包。0.7.1 的标签与下载入口：
+<https://github.com/MurasameCyan/CubismExternalEditMCP/releases/tag/bridge-v0.7.1>
 
 | 资产 | 说明 |
 |------|------|
@@ -368,11 +387,13 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 | `install.bat` / `uninstall.bat` | 安装 / 卸载，用法：`install.bat "<Live2D Cubism 安装目录>"` |
 | `SHA256SUMS.txt` | SHA-256 校验和 |
 
+0.7.1 目标 `cubism_bridge.dll` 为 **389,632 字节**，SHA-256 为 `2200bc37843221b917a1c8a926f4c668118c81d1309b8558b12f90e51bc7ad11`。较早的同版本构建不含双栏参数适配，须同时核对哈希，不能只看版本号。
+
 安装 / 升级：
 
-1. 保存工作并退出 Editor，下载同一版本的上述资产，用 `SHA256SUMS.txt` 核对校验和。
+1. 保存工作并正常退出 Editor，下载同一版本的上述 5 个资产，用 `SHA256SUMS.txt` 核对校验和。
 2. **通用 jli 代理通道**：运行 `install.bat "<Live2D Cubism 安装目录>"`。编辑器 `app\jre\bin\cubism_bridge.dll` 优先于用户目录中的同名 DLL；只更新低优先级副本不会升级实际加载版本。
-3. 更新 Python 适配层后重启 MCP 服务，并重启 Editor。调用 `cubism_bridge_status`，再通过 `cubism_bridge_invoke` 执行 `{"op":"bridge.ping","args":{}}`，并用 `cubism_bridge_ops` 核对实际版本为 0.7.0、注册 73 项；不要只凭下载文件名判断升级成功。
+3. 更新 Python 适配层后重启 MCP 服务，并正常重启 Editor。调用 `cubism_bridge_status`，再通过 `cubism_bridge_invoke` 执行 `{"op":"bridge.ping","args":{}}`，并用 `cubism_bridge_ops` 核对实际版本为 0.7.1、注册 73 项；结合 DLL 哈希确认实际加载构建，不要只凭下载文件名判断升级成功。
 
 > 桥接二进制适配 Windows 上的 Cubism Editor 5.4.00 alpha2；编辑器大版本升级后若原生 API 变动，可能需要重新发布桥接。
 

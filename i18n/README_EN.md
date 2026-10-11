@@ -155,6 +155,7 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
     }
   }
 }
+```
 
 ### Step 3: Enable External Integration in Cubism Editor
 
@@ -264,7 +265,7 @@ After installing and restarting the Editor, this MCP server exposes:
 
 > Without the bridge these three tools return `BridgeNotInstalled` with setup steps; all other tools are unaffected.
 
-**CubismBridge 0.7.0 registers 73 native operations; the MCP tool count remains 45**. Existing capabilities include geometry editing, physics, image export, document saving, workspace / palette / tool / canvas state, layered PSD, CMOX, SDK2/SDK3 model data, texture atlas creation, animation tracks / parameter keyframes / form animation, and video export. Additions and limitations for 0.5.0–0.7.0 are described below.
+**CubismBridge 0.7.1 registers 73 native operations; the MCP tool count remains 45**. Existing capabilities include geometry editing, physics, image export, document saving, workspace / palette / tool / canvas state, layered PSD, CMOX, SDK2/SDK3 model data, texture atlas creation, animation tracks / parameter keyframes / form animation, and video export. The 0.7.1 fixes and existing 0.5.0–0.7.0 capabilities and limitations are described below.
 
 - Physics imports and global edits support native undo / redo. CMO3 preserves settings groups and FPS; use physics3 JSON to preserve gravity and wind.
 - Animation supports four native targets and CAN3 save / reopen. `editor.document.save` accepts `path`, which is required for untitled documents. Model / animation write failures return errors without retry dialogs.
@@ -277,7 +278,26 @@ After installing and restarting the Editor, this MCP server exposes:
 - Native responses are bounded at 64 MiB, supporting results larger than 64 KiB such as per-frame physics output. Oversized or unparseable responses also return `BridgeOutcomeUnknown` without replay. Inspect actual state; a transport failure does not mean the operation was not executed.
 - Visibility, hierarchy selection and Solo have scoped behavioral verification. `command_loadVisibleMap` swaps two visibility snapshots without adding an undo entry. `command_solo` fixes its targets at activation and clears temporary locks on exit. An empty snapshot or selection can trigger native warnings; static command classification does not guarantee dialog-free execution for every input.
 
-Query `cubism_bridge_ops` for the operation list. **Registration does not establish full native coverage**. There is scoped behavioral evidence for 150 native command names, not every input to those commands or the whole Editor; dedicated operations are not counted as additional verified menu commands. All four Solo color / opacity combinations have been verified on the actual canvas; ordinary model export does not include this view isolation. Closing and reopening the model resets Solo and its options.
+Query `cubism_bridge_ops` for the operation list. **Registration does not establish full native coverage**. There is scoped behavioral evidence for 206 unique native command names, not every input to those commands or the whole Editor; dedicated operations are not counted as additional verified menu commands. All four Solo color / opacity combinations have been verified on the actual canvas; ordinary model export does not include this view isolation. Closing and reopening the model resets Solo and its options.
+
+### Fixes and limitations in 0.7.1
+
+This version fixes the following behavior through existing `editor.command.invoke` bridge entry points, without adding native operations or MCP tools:
+
+- **Generate original images from an atlas**: `command_generateRawImageFromTextureAtlas` retains native rasterization. Meshes must already reference a locked atlas; requests without an eligible atlas are rejected before editing. Undo / redo restores original-image wrappers, image groups / ModelImages, all inputs, atlas membership / locks / caches, and UVs as a complete transaction. Mid-operation or commit failures restore the previous history, redo state and clocks while preserving the original error cause. Undo across atlas updates, failure recovery and save / reopen in a new JVM have been verified.
+- **Semantic UV restoration for previews**: `command_previewReductionRatio` has been verified at 1→2→4→8→1 with source data, UVs and history preserved and `dirty=false`. Only this command treats ModelImage cache-resolution changes as equivalent; source images, dimensions, filters, layer tables, authored matrices and geometry are still checked. This exception does not apply to real atlas-layout changes.
+- **Mesh completion and the native atlas window**: mesh completion paths, including `command_endMeshEditor`, share UV protection. Scoped checks cover work / Main undo and redo plus save / reopen for reset / connect / axis / paste and startOrEnd(true/false). The native atlas window has separate verification for creation, two-level cancellation, resizing, work / Main history and undo across dedicated update operations. Real size / layout changes must still change the necessary UVs; undo restores the original sampling correspondence rather than forcing old UVs onto a new layout.
+- **Complete contour fitting**: the zero-argument `command_fitArtMeshContour` uses the complete four-neighbor boundary of native alpha hits, including every connected component and inner hole. It selects the nearest integer sample by canvas Euclidean distance, with row-major tie-breaking. Native parent projection is preserved; only selected point positions in the current keyform change, without detaching the parent or changing other forms / styles / bindings. No change adds no history entry. Undo / redo, failure recovery and reopening in a new JVM have been verified.
+- **Two-pane main canvas**: only the named `SGSplitLayoutSplitMode` key in `command_divMainCanvas(Map)` converts a string to its native enum. The caller's Map and other commands' Map semantics are unchanged. A missing key, null, non-string, unknown enum or missing native class returns `NoSuchMethodException` without executing the command. Only `DOUBLE_H` has been verified to change the canvas area count from 1 to 2 while preserving model data, references, history and `dirty=false`. `SINGLE` has returned success without reducing the area count, so it is not a reset guarantee; other layouts are unverified.
+
+Request the verified two-pane layout through `cubism_bridge_invoke`:
+
+```json
+{"op":"editor.command.invoke","args":{"name":"command_divMainCanvas","args":[{"SGSplitLayoutSplitMode":"DOUBLE_H"}]}}
+```
+
+- Fixes apply **only to bridge entry points**, not manual menus or existing history. Ordinary undo may restore data while leaving `dirty=true`; cancelling mesh work edits can also leave it set. Inspect the data and save explicitly; do not forcibly clear dirty. Undo for `command_screenShotToArtMesh` still risks leaving residual parts / unrestored UVs and is not fixed in this version.
+- Native semi-transparent clipping differences are unchanged; atlas-to-original-image conversion is not guaranteed pixel-lossless. Generated-image `autoManaged` is still derived from native merge-set tables. Contour fitting samples a discrete boundary, not a guaranteed continuous curve; single-pixel regions may converge, and ordinary undo / redo may still clear UI point selection. Very large sparse regions, degenerate warp deformers and ArtPath export are unverified.
 
 ### Additions and limitations in 0.5.0–0.7.0
 
@@ -337,8 +357,8 @@ Active sources and any referenced resources, including old atlases referenced by
 
 ### Download and install (Releases of this fork)
 
-The bridge is distributed as **standalone DLL binary assets** without modifying `Live2D_Cubism.jar`; this update does not publish a PyPI package. Before upgrading to 0.7.0, confirm that `bridge-v0.7.0` and the assets below are actually available in Releases. This section does not establish that publication or your local upgrade has completed:
-<https://github.com/MurasameCyan/CubismExternalEditMCP/releases>
+The bridge is distributed as **standalone DLL binary assets** without modifying `Live2D_Cubism.jar`; this update does not publish a PyPI package. Version 0.7.1 tag and downloads:
+<https://github.com/MurasameCyan/CubismExternalEditMCP/releases/tag/bridge-v0.7.1>
 
 | Asset | Description |
 |-------|-------------|
@@ -347,11 +367,13 @@ The bridge is distributed as **standalone DLL binary assets** without modifying 
 | `install.bat` / `uninstall.bat` | Install / uninstall; usage: `install.bat "<Live2D Cubism install dir>"` |
 | `SHA256SUMS.txt` | SHA-256 checksums |
 
+The target 0.7.1 `cubism_bridge.dll` is **389,632 bytes**, with SHA-256 `2200bc37843221b917a1c8a926f4c668118c81d1309b8558b12f90e51bc7ad11`. Earlier builds bearing the same version lack the two-pane argument adapter; verify the hash as well as the version.
+
 Install / upgrade:
 
-1. Save your work and exit the Editor. Download the listed assets from the same version and verify them against `SHA256SUMS.txt`.
+1. Save your work and exit the Editor normally. Download all 5 listed assets from the same version and verify them against `SHA256SUMS.txt`.
 2. **Generic jli proxy channel**: run `install.bat "<Live2D Cubism install dir>"`. The editor's `app\jre\bin\cubism_bridge.dll` takes precedence over the user-directory copy; updating only the lower-priority copy does not update the loaded version.
-3. Restart the MCP service after updating the Python adapter, and restart the Editor. Call `cubism_bridge_status`, invoke `{"op":"bridge.ping","args":{}}` through `cubism_bridge_invoke`, and use `cubism_bridge_ops` to confirm the loaded version is 0.7.0 with 73 registered operations. A downloaded filename alone does not prove a successful upgrade.
+3. Restart the MCP service after updating the Python adapter, and restart the Editor normally. Call `cubism_bridge_status`, invoke `{"op":"bridge.ping","args":{}}` through `cubism_bridge_invoke`, and use `cubism_bridge_ops` to confirm the loaded version is 0.7.1 with 73 registered operations. Also check the DLL hash to identify the loaded build; a downloaded filename alone does not prove a successful upgrade.
 
 > The bridge binaries target Cubism Editor 5.4.00 alpha2 on Windows; a major editor update may require a new bridge release.
 
