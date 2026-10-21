@@ -265,7 +265,7 @@ After installing and restarting the Editor, this MCP server exposes:
 
 > Without the bridge these three tools return `BridgeNotInstalled` with setup steps; all other tools are unaffected.
 
-**CubismBridge 0.7.1 registers 73 native operations; the MCP tool count remains 45**. Existing capabilities include geometry editing, physics, image export, document saving, workspace / palette / tool / canvas state, layered PSD, CMOX, SDK2/SDK3 model data, texture atlas creation, animation tracks / parameter keyframes / form animation, and video export. The 0.7.1 fixes and existing 0.5.0–0.7.0 capabilities and limitations are described below.
+**CubismBridge 0.7.2 registers 73 native operations; the MCP tool count remains 45**. Existing geometry, physics, image export, document, workspace / palette / tool / canvas, layered PSD, CMOX, SDK2/SDK3, atlas, animation and video capabilities are retained. This release adds bridge-entry history / save-prompt fixes, statistics reopening, canvas cancellation and scene-switch argument adaptation; scoped behavior and limitations follow.
 
 - Physics imports and global edits support native undo / redo. CMO3 preserves settings groups and FPS; use physics3 JSON to preserve gravity and wind.
 - Animation supports four native targets and CAN3 save / reopen. `editor.document.save` accepts `path`, which is required for untitled documents. Model / animation write failures return errors without retry dialogs.
@@ -274,15 +274,45 @@ After installing and restarting the Editor, this MCP server exposes:
 - Fixed native operations cover workspace switching, palette visibility, tool switching, and canvas / timeline settings. Failure isolation and mode protection do not imply every palette field is writable.
 - `editor.command.invoke` supports typed arguments and automatic `IDocument` injection. Suspected dialog commands are rejected unless `allowDialog=true`; destructive commands such as delete / exit additionally require `confirm=true`. Manual menu operations are unchanged.
 - `cubism_bridge_invoke` waits up to 190 seconds for a native result, covering the bridge's longest 180-second operation limit. Startup and status probes retain their shorter waits. Restart the MCP service after updating the Python adapter.
+- **OMP also needs an outer receive deadline**: add `"timeout": 240000` (milliseconds, not inside `env`) to the `mcpServers["cubism-mcp"]` server object in `~/.omp/agent/mcp.json`. When no MCP request is in flight, run `/mcp reload` or restart the OMP client; restarting the Editor is unnecessary. OMP defaults to 30000ms and can time out before the adapter. Existing connections do not automatically pick up file edits. An `OMP_MCP_TIMEOUT_MS` environment variable set when launching OMP takes precedence over server configuration. Other clients must also allow sufficiently long tool calls, not merely a longer startup timeout. Never automatically replay a timed-out request.
 - A disconnect or response timeout after sending a request returns `BridgeOutcomeUnknown` without replaying it on another port. The operation may have completed or still be running; inspect Editor state before deciding whether to retry.
 - Native responses are bounded at 64 MiB, supporting results larger than 64 KiB such as per-frame physics output. Oversized or unparseable responses also return `BridgeOutcomeUnknown` without replay. Inspect actual state; a transport failure does not mean the operation was not executed.
 - Visibility, hierarchy selection and Solo have scoped behavioral verification. `command_loadVisibleMap` swaps two visibility snapshots without adding an undo entry. `command_solo` fixes its targets at activation and clears temporary locks on exit. An empty snapshot or selection can trigger native warnings; static command classification does not guarantee dialog-free execution for every input.
 
-Query `cubism_bridge_ops` for the operation list. **Registration does not establish full native coverage**. There is scoped behavioral evidence for 206 unique native command names, not every input to those commands or the whole Editor; dedicated operations are not counted as additional verified menu commands. All four Solo color / opacity combinations have been verified on the actual canvas; ordinary model export does not include this view isolation. Closing and reopening the model resets Solo and its options.
+Query `cubism_bridge_ops` for the operation list. **Registration does not establish full native coverage**. There is scoped behavioral evidence for 232 unique native command names; 113 of the frozen 345-name inventory remain unverified. This does not cover every input or the whole Editor, and dedicated operations are not counted as additional verified menu commands. All four Solo color / opacity combinations have been verified on the actual canvas; ordinary model export does not include this view isolation. Closing and reopening the model resets Solo and its options.
+
+### Fixes and limitations in 0.7.2
+
+These fixes apply only to bridge-initiated native entry points, without modifying `Live2D_Cubism.jar`, manual menu handlers or existing history. The 0.7.1 capabilities remain available. Do not rely on the following history and save-prompt repairs while still running an older build.
+
+- **Screenshot to ArtMesh**: `command_screenShotToArtMesh` combines the native screenshot / mesh operation's reference-image Part, mesh, ModelImage and required resource changes into one Main history entry. Undo restores inputs and UVs and removes a newly created Part or restores an existing Part's visibility. First capture the current view with `command_screenShot`; without a snapshot, the native warning remains and no objects are generated or old redo discarded.
+- **Controller-point corners**: `command_setControllerPointAsCorner` records corner changes and rebinding as one dirty Main transaction. Undo / redo restores points, curves, bindings and topology observation. A real controller-point selection is required; object selection or ArtPath point references are not substitutes. Empty point selections preserve history and old redo. No public point-selection tool is added.
+- **Statistics reopening**: `command_modelingStatistics` restarts the native updater only when the window is actually shown, automatic updating is selected and the original thread is missing / stopped. It does not activate the window or create a timer. Existing threads, manual mode and the stopped state after closing are preserved.
+- **Canvas-setting cancellation**: `command_modelSetting` edits canvas width / height and the nine-position anchor, not model names / IDs. Normal cancellation restores the prior edit clocks only if the document, mode, canvas, background and complete history entries / position are unchanged. Existing dirty and redo remain; confirmation keeps native behavior.
+- **Track-label deletion**: `command_removeLabelsOnSelectedTracks` adds one original-scene history entry in normal SceneView, preserving actual label references, all seven fields, parameter order and raw GUID reference order. Undo / redo after saving advances the original scene clock and a real close prompts to save. Native single-holder empty selection still deletes implicitly; multiple holders with empty selection show the native warning, repeated deletion leaves history unchanged, and raw-GUID-only removal is a modification.
+- **MotionSync settings replay**: `command_showMotionSyncSettingDialog` retains the window's independent local history. Only successful undo / redo that changes persistent contents of its original SourceSet advances the captured document clocks. Pure selection, empty history and unchanged notifications remain clean; Main history / old redo are preserved. Hiding retains the owner binding, disposal removes bridge listeners, and reopening does not duplicate registration.
+- **Form-animation keys**: `command_createFormAnimationKey` retains native key creation in active FA and adds the associated Scene clock update and successful-replay listener to this operation's history group. These are keys in the owning CAN3, not CMO3 parameter keyforms or ordinary parameter curves. Bidirectional replay after saving and the actual save prompt have been verified.
+- **Create scenes from sounds**: `command_createSceneFromSounds` retains native selection, scene / track generation and source-Scene history ownership; successful undo / redo advances only that owner's clock. The linked CMO3 must already contain a persisted LIPSYNC group; in-memory setup or saving only CAN3 is insufficient. Undo restores generated-scene properties / curves but **does not unregister the new scene**. Use public undo / redo from the source scene; the generated scene does not own this history.
+- **MotionSync sound baking**: `command_BakeMotionSync` executes the native bake once and adds successful-replay clock updates only to the new history group matching the original Scene / FormAnimationSet. It does not change curve generation, global undo or save timestamps. With one valid CRI / Shape source, six phonemes and a 0.5-second WAV, the no-curve-fitting / adjust-track-length combination matched the independent, pre-frozen SDK / control-point expectation for 14 full keys, all curves and 6,120 numerical results. Bidirectional saved replay, cancelling the real save prompt and three-state reopening in independent JVMs have been verified. Cancelling / closing preserves old redo, but native option / column-width saving and retained temporary source maps are not zero side effects.
+- **Scene-switch arguments**: animation `scenes[]` from `editor.documents.list` now includes `sceneId`. `command_switchSceneViewContext(Map)` accepts only the single-key `{"sceneId":"<SCENE_GUID>"}` map, using a freshly queried scene value. Missing / extra keys, non-strings and unknown / duplicate GUIDs are rejected with `NoSuchMethodException`. The caller's map is unchanged; no disk load or fallback to the current scene occurs. Native creation of a new view / instance and replacement of the old Tab is retained, rather than activating an existing target view.
+
+Query scenes first, then replace `<SCENE_GUID>` with the target entry's `scenes[].sceneId`. Each JSON object is one `cubism_bridge_invoke` argument object:
+
+```json
+{"op":"editor.documents.list","args":{}}
+```
+
+```json
+{"op":"editor.command.invoke","args":{"name":"command_switchSceneViewContext","args":[{"sceneId":"<SCENE_GUID>"}]}}
+```
+
+- Scene switching is verified only for normal, stopped scenes within one CAN3 and the tested Tab layout. Frame / pose, camera and authored data are preserved, and reopening selects the correct current scene. Native float camera reconstruction is not a bitwise-equality or camera / frame persistence guarantee. Switching across animations when the old file has its last view may enter close / save / cancel handling; this path, FA and switching during playback remain unverified.
+- Labels, MotionSync settings, form keys, sound-created scenes and baking have verification for bidirectional dirty state after saving, cancelling a real save prompt and independent-JVM persistence. Noncurrent-owner native-manager scope was separately verified for labels, MotionSync settings, sound-created scenes and baking, not for form keys; this is not a new public directed-replay API. Screenshots, corners and labels additionally have mid-operation / commit-failure and old-redo recovery evidence; this does not cover every exceptional native replay compensation.
+- Sound-created scenes are verified only for one model / one WAV. Baking does not cover nonconstant speech, curve fitting, arbitrary multiple sources or invalid media. Active recording / playback and release of an actively playing Clip / audio line are unverified. Results use isolated model copies, not arbitrary models, every input, manual menus or future Editor versions. Ordinary undo can still leave dirty set; inspect and save explicitly rather than clearing clocks or history.
 
 ### Fixes and limitations in 0.7.1
 
-This version fixes the following behavior through existing `editor.command.invoke` bridge entry points, without adding native operations or MCP tools:
+The following fixes were introduced through existing `editor.command.invoke` bridge entry points in 0.7.1 and are retained in 0.7.2, without adding native operations or MCP tools:
 
 - **Generate original images from an atlas**: `command_generateRawImageFromTextureAtlas` retains native rasterization. Meshes must already reference a locked atlas; requests without an eligible atlas are rejected before editing. Undo / redo restores original-image wrappers, image groups / ModelImages, all inputs, atlas membership / locks / caches, and UVs as a complete transaction. Mid-operation or commit failures restore the previous history, redo state and clocks while preserving the original error cause. Undo across atlas updates, failure recovery and save / reopen in a new JVM have been verified.
 - **Semantic UV restoration for previews**: `command_previewReductionRatio` has been verified at 1→2→4→8→1 with source data, UVs and history preserved and `dirty=false`. Only this command treats ModelImage cache-resolution changes as equivalent; source images, dimensions, filters, layer tables, authored matrices and geometry are still checked. This exception does not apply to real atlas-layout changes.
@@ -296,7 +326,7 @@ Request the verified two-pane layout through `cubism_bridge_invoke`:
 {"op":"editor.command.invoke","args":{"name":"command_divMainCanvas","args":[{"SGSplitLayoutSplitMode":"DOUBLE_H"}]}}
 ```
 
-- Fixes apply **only to bridge entry points**, not manual menus or existing history. Ordinary undo may restore data while leaving `dirty=true`; cancelling mesh work edits can also leave it set. Inspect the data and save explicitly; do not forcibly clear dirty. Undo for `command_screenShotToArtMesh` still risks leaving residual parts / unrestored UVs and is not fixed in this version.
+- Fixes apply **only to bridge entry points**, not manual menus or existing history. Ordinary undo may restore data while leaving `dirty=true`; cancelling mesh work edits can also leave it set. Inspect the data and save explicitly; do not forcibly clear dirty. The 0.7.1 residual-Part / UV risk in `command_screenShotToArtMesh` is repaired by the 0.7.2 bridge path described above, not by changing manual menus.
 - Native semi-transparent clipping differences are unchanged; atlas-to-original-image conversion is not guaranteed pixel-lossless. Generated-image `autoManaged` is still derived from native merge-set tables. Contour fitting samples a discrete boundary, not a guaranteed continuous curve; single-pixel regions may converge, and ordinary undo / redo may still clear UI point selection. Very large sparse regions, degenerate warp deformers and ArtPath export are unverified.
 
 ### Additions and limitations in 0.5.0–0.7.0
@@ -357,8 +387,8 @@ Active sources and any referenced resources, including old atlases referenced by
 
 ### Download and install (Releases of this fork)
 
-The bridge is distributed as **standalone DLL binary assets** without modifying `Live2D_Cubism.jar`; this update does not publish a PyPI package. Version 0.7.1 tag and downloads:
-<https://github.com/MurasameCyan/CubismExternalEditMCP/releases/tag/bridge-v0.7.1>
+The bridge is distributed as **standalone DLL binary assets** without modifying `Live2D_Cubism.jar`; this update does not publish a PyPI package. Version 0.7.2 tag and downloads:
+<https://github.com/MurasameCyan/CubismExternalEditMCP/releases/tag/bridge-v0.7.2>
 
 | Asset | Description |
 |-------|-------------|
@@ -367,13 +397,13 @@ The bridge is distributed as **standalone DLL binary assets** without modifying 
 | `install.bat` / `uninstall.bat` | Install / uninstall; usage: `install.bat "<Live2D Cubism install dir>"` |
 | `SHA256SUMS.txt` | SHA-256 checksums |
 
-The target 0.7.1 `cubism_bridge.dll` is **389,632 bytes**, with SHA-256 `2200bc37843221b917a1c8a926f4c668118c81d1309b8558b12f90e51bc7ad11`. Earlier builds bearing the same version lack the two-pane argument adapter; verify the hash as well as the version.
+The target 0.7.2 `cubism_bridge.dll` is **501,760 bytes**, with SHA-256 `7d2d8640a4cc301ad1fda6d0866f490e56834135acfd88afa30b227634f2f0ce`. Verify both the version and hash; downloading assets does not update a running older instance.
 
 Install / upgrade:
 
 1. Save your work and exit the Editor normally. Download all 5 listed assets from the same version and verify them against `SHA256SUMS.txt`.
 2. **Generic jli proxy channel**: run `install.bat "<Live2D Cubism install dir>"`. The editor's `app\jre\bin\cubism_bridge.dll` takes precedence over the user-directory copy; updating only the lower-priority copy does not update the loaded version.
-3. Restart the MCP service after updating the Python adapter, and restart the Editor normally. Call `cubism_bridge_status`, invoke `{"op":"bridge.ping","args":{}}` through `cubism_bridge_invoke`, and use `cubism_bridge_ops` to confirm the loaded version is 0.7.1 with 73 registered operations. Also check the DLL hash to identify the loaded build; a downloaded filename alone does not prove a successful upgrade.
+3. Use the latest Python adapter from this fork and restart the MCP service and Editor normally. Call `cubism_bridge_status`, invoke `{"op":"bridge.ping","args":{}}` through `cubism_bridge_invoke`, and use `cubism_bridge_ops` to confirm the loaded version is 0.7.2 with 73 registered operations. Also check the DLL hash to identify the loaded build; a downloaded filename alone does not prove a successful upgrade.
 
 > The bridge binaries target Cubism Editor 5.4.00 alpha2 on Windows; a major editor update may require a new bridge release.
 

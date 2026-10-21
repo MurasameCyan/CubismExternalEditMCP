@@ -285,7 +285,7 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 
 > 未安装桥接时，这三个工具返回 `BridgeNotInstalled` 与安装指引，其余工具不受影响。
 
-**CubismBridge 0.7.1 注册 73 个原生操作，MCP 工具总数仍为 45 个**。保留几何编辑、物理、图片导出、文档保存、工作区 / 面板 / 工具 / 画布状态、分层 PSD、CMOX、SDK2/SDK3 模型数据、纹理集创建、动画轨道 / 参数关键帧 / 形状动画及视频导出；0.7.1 修复与既有 0.5.0–0.7.0 能力和边界见下文。
+**CubismBridge 0.7.2 注册 73 个原生操作，MCP 工具总数仍为 45 个**。保留几何编辑、物理、图片导出、文档保存、工作区 / 面板 / 工具 / 画布状态、分层 PSD、CMOX、SDK2/SDK3 模型数据、纹理集、动画与视频导出；新增桥入口的历史 / 保存提示修复、统计重开、画布取消和场景切换参数适配，具体能力与边界见下文。
 
 - 物理导入和全局修改支持原生撤销 / 重做；CMO3 保存设置组与 FPS，重力 / 风需通过 physics3 JSON 保存。
 - 动画支持四种原生目标及 CAN3 保存重开；`editor.document.save` 可指定 `path`，未命名文档必须提供路径。模型 / 动画写入失败返回错误，不弹重试框。
@@ -294,15 +294,45 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 - 工作区切换、面板显隐、工具切换及画布 / 时间线设置提供固定原生入口。失败隔离与模式保护不等于全部面板字段均可写。
 - `editor.command.invoke` 支持类型化参数与 `IDocument` 自动注入；疑似弹窗命令默认拒绝，需显式 `allowDialog=true`，删除 / 退出等危险命令另需 `confirm=true`。手动菜单操作不受影响。
 - `cubism_bridge_invoke` 等待原生结果最多 190 秒，以覆盖桥接最长 180 秒的操作上限；启动探测和状态查询仍使用各自短等待。更新 Python 适配层后需重启 MCP 服务使其生效。
+- **OMP 用户还需配置外层接收期限**：在 `~/.omp/agent/mcp.json` 的 `mcpServers["cubism-mcp"]` 服务对象内加入 `"timeout": 240000`（毫秒，不是 `env` 字段），然后在没有进行中的 MCP 请求时执行 `/mcp reload` 或重启 OMP 客户端。无需重启 Editor。OMP 默认 30000ms 会先于适配器超时；已有连接不会随文件修改自动更新。启动 OMP 时的 `OMP_MCP_TIMEOUT_MS` 环境变量优先于服务配置，若设置过也需核对。其他客户端也须检查工具调用期限，不能只调整启动期限；超时后仍禁止自动重放。
 - 请求发送后若连接断开或响应超时，返回 `BridgeOutcomeUnknown`，不换端口重发。此时操作可能已生效或仍在执行；先查询编辑器状态，再决定是否重新操作。
 - 原生响应读取上限为 64 MiB，支持物理逐帧等超过 64 KiB 的结果；响应超限或无法解析也返回 `BridgeOutcomeUnknown` 且不重放。调用方仍须检查实际状态，不能把传输失败当作未执行。
 - 可见性、层级选择与 Solo 已补行为验收；`command_loadVisibleMap` 交换两套可见性而不增加撤销项，`command_solo` 固定开启时的目标、退出清除临时锁。空映射 / 空选择等条件可能触发原生警告，命令静态分类不保证每种输入都无弹窗。
 
-操作清单用 `cubism_bridge_ops` 查询。**已注册不等于全部原生操作已验证**；累计 206 个唯一原生命令名称具备限定场景的行为证据，不代表这些命令的全部输入或完整 Editor 覆盖，专用接口也不计作额外菜单命令通过。Solo 颜色 / 透明度四组合已验证实际画布；普通模型导出不包含这种视图隔离效果。关闭重开模型会复位 Solo 及其选项。
+操作清单用 `cubism_bridge_ops` 查询。**已注册不等于全部原生操作已验证**；累计 232 个唯一原生命令名称具备限定场景的行为证据，冻结的 345 个命令名称中仍有 113 个待验证，不代表这些命令的全部输入或完整 Editor 覆盖，专用接口也不计作额外菜单命令通过。Solo 颜色 / 透明度四组合已验证实际画布；普通模型导出不包含这种视图隔离效果。关闭重开模型会复位 Solo 及其选项。
+
+### 0.7.2 修复与限制
+
+修复只作用于桥接发起的原生入口，不修改 `Live2D_Cubism.jar`、手工菜单处理器或既有历史；0.7.1 的能力继续保留。升级前，不能在旧版上依赖以下历史与保存提示修复。
+
+- **截图转网格**：`command_screenShotToArtMesh` 将原生截图 / 网格生成涉及的参考图部件、网格、ModelImage 和必要资源变化合并为一条 Main 历史，撤销恢复输入与 UV 并移除新部件，或恢复原部件可见性。先用 `command_screenShot` 建立当前视图快照；没有快照时保留原生提示，不生成对象、不破坏旧 redo。
+- **控制点角点**：`command_setControllerPointAsCorner` 将角点切换与重绑定纳入一条 Main 历史并置脏；撤销 / 重做恢复点、曲线、绑定及拓扑观察关系。需要真实控制点选集，对象选择或 ArtPath 点引用不能替代；空控制点选择不增历史、不破坏旧 redo。本版没有新增公开控制点选取工具。
+- **统计窗口重开**：`command_modelingStatistics` 只在窗口实际显示、自动更新已勾选且原生更新线程缺失 / 停止时重启原生更新器，不抢焦点、不新建定时器。已有线程、手动模式和关闭后的停止状态保持。
+- **画布设置取消**：`command_modelSetting` 编辑画布宽 / 高与九宫格锚点，不是模型名称 / ID。正常取消且文档、模式、画布、背景、全部历史条目 / 位置未变时，恢复调用前编辑时钟；既有 dirty 与旧 redo 保持，确认路径仍使用原生逻辑。
+- **轨道标签删除**：`command_removeLabelsOnSelectedTracks` 为普通 SceneView 补一条原场景历史，保存标签真正引用、七字段、参数顺序和 raw GUID 引用顺序。保存后撤销 / 重做更新原场景修改时钟，真正关闭会提示保存。单 holder 空选仍按原生规则隐式删除；多 holder 空选显示原生提示，重复删除不改历史；仅有 raw GUID 也算修改。
+- **MotionSync 设置回放**：`command_showMotionSyncSettingDialog` 保留窗口的独立局部历史；只有实际改变原 SourceSet 持久内容的成功撤销 / 重做才更新原文档时钟。纯选项选择、空历史和 unchanged 通知不置脏，Main 历史 / 旧 redo 不变。隐藏窗口保留原 owner 绑定，真正销毁后移除本桥监听器，重复打开不重复注册。
+- **形状动画键**：`command_createFormAnimationKey` 在活动 FA 中保留原生加键，并为关联 Scene 的本次历史组补修改时钟及成功回放监听。键保存在所属 CAN3，不是 CMO3 参数关键形状或普通参数曲线；保存后双向回放和实际关闭保存提示已验证。
+- **从声音创建场景**：`command_createSceneFromSounds` 保留原生选择框、场景 / 轨道生成和来源 Scene 的历史归属，成功撤销 / 重做仅更新原 owner 时钟。链接 CMO3 必须已持久化真实 LIPSYNC 分组，内存设置或只保存 CAN3 不能替代。撤销恢复生成场景属性 / 曲线，**不删除新场景登记**；须回到来源场景使用公共撤销 / 重做，生成场景不持有该历史。
+- **MotionSync 声音烘焙**：`command_BakeMotionSync` 保持一次原生烘焙，只给本次原 Scene / FormAnimationSet 匹配的新历史组补成功回放时钟，不改曲线算法、全局撤销或保存时刻。单个有效 CRI / Shape 源、六音素和 0.5 秒 WAV，在“不生成拟合曲线 / 调整轨道长度”组合下，14 个完整键、全部曲线和 6,120 个数值结果与事前独立 SDK / 控制点预期一致；保存后双向回放、实际保存提示取消和独立新 JVM 三态读回已验证。取消 / 关闭窗口保留旧 redo，但原生会保存选项 / 列宽并保留临时 source map，不是零副作用。
+- **场景切换参数**：`editor.documents.list` 的动画 `scenes[]` 增加 `sceneId`。`command_switchSceneViewContext(Map)` 只接受单键 `{"sceneId":"<SCENE_GUID>"}`，值必须来自刚查询的场景；缺键、额外键、非字符串、未知或重复 GUID 按 `NoSuchMethodException` 拒绝，不修改调用者 Map、不加载磁盘、不回退当前场景。保留原生“新建 view / instance 并替换旧 Tab”的行为，不是激活已有目标 view。
+
+先查询场景，再将 `<SCENE_GUID>` 替换为目标条目的 `scenes[].sceneId`；每个 JSON 均是一次 `cubism_bridge_invoke` 的参数：
+
+```json
+{"op":"editor.documents.list","args":{}}
+```
+
+```json
+{"op":"editor.command.invoke","args":{"name":"command_switchSceneViewContext","args":[{"sceneId":"<SCENE_GUID>"}]}}
+```
+
+- 场景切换只验证普通、停止播放、同一 CAN3 的场景及已测 Tab 布局；保留帧 / 姿态、相机和作者数据，保存重开进入正确当前场景。相机经原生 float 重建，不保证逐位相等或相机 / 帧序列化。跨动画且旧文件只剩最后一个 view 时可能进入关闭 / 保存 / 取消流程，此路径、FA 和播放中切换未验。
+- 标签、MotionSync 设置、形状键、声音创建及烘焙已验证保存后双向 dirty、实际保存提示取消及独立 JVM 持久化。非当前 owner 的原生 manager 作用域已单独验证标签、MotionSync 设置、声音创建和烘焙，不外推至形状键，也不是新增公共定向回放 API。截图、角点和标签另有中途 / 提交失败及旧 redo 恢复证据，不外推所有原生回放异常补偿。
+- 声音创建仅验证单模型 / 单 WAV；烘焙不外推非恒定语音、生成拟合曲线、任意多源 / 坏媒体。未验证活跃录音 / 播放及正在播放的 Clip / audio line 释放。所有结果来自隔离模型副本，不能当作任意模型、全部输入、手工菜单或未来 Editor 版本保证；正常撤销仍可能保持 dirty，应核对后显式保存，不强清时钟或历史。
 
 ### 0.7.1 修复与限制
 
-本版通过既有 `editor.command.invoke` 桥入口修复以下行为，不新增原生操作或 MCP 工具：
+0.7.1 通过既有 `editor.command.invoke` 桥入口引入以下修复，0.7.2 继续保留，不新增原生操作或 MCP 工具：
 
 - **图集生成原图**：`command_generateRawImageFromTextureAtlas` 保留原生栅格化算法；要求网格已引用锁定图集，无合格图集时在编辑前拒绝。撤销 / 重做完整恢复原图包装、图像组 / ModelImage、全部输入、图集成员 / 锁 / 缓存及 UV；中途或提交失败恢复原历史、redo 和时钟，并保留真实异常原因。已验证跨图集更新撤销、失败恢复及新 JVM 保存重开。
 - **预览的语义 UV 恢复**：`command_previewReductionRatio` 已验证 1→2→4→8→1，源数据、UV 和历史保持且 `dirty=false`。仅此命令可将 ModelImage 缓存分辨率变化视为等价；仍核对源图、尺寸、滤镜、层表、作者矩阵和几何，不把该例外用于真实图集布局变化。
@@ -316,7 +346,7 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 {"op":"editor.command.invoke","args":{"name":"command_divMainCanvas","args":[{"SGSplitLayoutSplitMode":"DOUBLE_H"}]}}
 ```
 
-- 修复**仅限桥入口**，不修复手工菜单或旧历史。普通撤销即使恢复数据，或取消网格工作编辑后，仍可能保留 `dirty=true`；核对后显式保存，不强清 dirty。`command_screenShotToArtMesh`（截图转网格）的撤销仍有残留部件 / UV 未恢复风险，未在本版修复。
+- 修复**仅限桥入口**，不修复手工菜单或旧历史。普通撤销即使恢复数据，或取消网格工作编辑后，仍可能保留 `dirty=true`；核对后显式保存，不强清 dirty。0.7.1 的 `command_screenShotToArtMesh` 撤销残留部件 / UV 风险由上文 0.7.2 的桥路径修复，手工菜单不在该修复范围。
 - 原生半透明裁剪差异未改，图集转原图不是全像素无损保证；生成图像的 `autoManaged` 仍由原生合并集表派生。轮廓拟合是离散边界采样，不保证连续曲线；单像素区域允许收敛，普通撤销 / 重做仍可能清空 UI 点选择。超大稀疏区域、退化弯曲变形器和 ArtPath 导出未验。
 
 ### 0.5.0–0.7.0 新增能力与限制
@@ -377,8 +407,8 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 
 ### 下载与安装（本 fork 的 Releases）
 
-桥接以**独立 DLL 二进制资产**分发，不需要修改 `Live2D_Cubism.jar`，本次不发布 PyPI 包。0.7.1 的标签与下载入口：
-<https://github.com/MurasameCyan/CubismExternalEditMCP/releases/tag/bridge-v0.7.1>
+桥接以**独立 DLL 二进制资产**分发，不需要修改 `Live2D_Cubism.jar`，本次不发布 PyPI 包。0.7.2 的标签与下载入口：
+<https://github.com/MurasameCyan/CubismExternalEditMCP/releases/tag/bridge-v0.7.2>
 
 | 资产 | 说明 |
 |------|------|
@@ -387,13 +417,13 @@ git clone https://github.com/nana7chi/CubismExternalEditMCP.git
 | `install.bat` / `uninstall.bat` | 安装 / 卸载，用法：`install.bat "<Live2D Cubism 安装目录>"` |
 | `SHA256SUMS.txt` | SHA-256 校验和 |
 
-0.7.1 目标 `cubism_bridge.dll` 为 **389,632 字节**，SHA-256 为 `2200bc37843221b917a1c8a926f4c668118c81d1309b8558b12f90e51bc7ad11`。较早的同版本构建不含双栏参数适配，须同时核对哈希，不能只看版本号。
+0.7.2 目标 `cubism_bridge.dll` 为 **501,760 字节**，SHA-256 为 `7d2d8640a4cc301ad1fda6d0866f490e56834135acfd88afa30b227634f2f0ce`。同时核对版本与哈希；下载资产不会自动更新正在运行的旧实例。
 
 安装 / 升级：
 
 1. 保存工作并正常退出 Editor，下载同一版本的上述 5 个资产，用 `SHA256SUMS.txt` 核对校验和。
 2. **通用 jli 代理通道**：运行 `install.bat "<Live2D Cubism 安装目录>"`。编辑器 `app\jre\bin\cubism_bridge.dll` 优先于用户目录中的同名 DLL；只更新低优先级副本不会升级实际加载版本。
-3. 更新 Python 适配层后重启 MCP 服务，并正常重启 Editor。调用 `cubism_bridge_status`，再通过 `cubism_bridge_invoke` 执行 `{"op":"bridge.ping","args":{}}`，并用 `cubism_bridge_ops` 核对实际版本为 0.7.1、注册 73 项；结合 DLL 哈希确认实际加载构建，不要只凭下载文件名判断升级成功。
+3. 使用本 fork 最新 Python 适配层并正常重启 MCP 服务与 Editor。调用 `cubism_bridge_status`，再通过 `cubism_bridge_invoke` 执行 `{"op":"bridge.ping","args":{}}`，并用 `cubism_bridge_ops` 核对实际版本为 0.7.2、注册 73 项；结合 DLL 哈希确认实际加载构建，不要只凭下载文件名判断升级成功。
 
 > 桥接二进制适配 Windows 上的 Cubism Editor 5.4.00 alpha2；编辑器大版本升级后若原生 API 变动，可能需要重新发布桥接。
 
